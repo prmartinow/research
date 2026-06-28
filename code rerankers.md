@@ -49,3 +49,14 @@ Reranker models for code are specialized cross-encoders that take a natural lang
 [7]: https://huggingface.co/blog/lightonai/colgrep-lateon-code "LateOn-Code & ColGrep: LightOn unveils state-of-the-art code retrieval models and code search tooling"
 [8]: https://huggingface.co/blog/ettin-reranker "Introducing the Ettin Reranker Family"
 [9]: https://huggingface.co/microsoft/codebert-base?utm_source=chatgpt.com "microsoft/codebert-base"
+
+## Benchmarks
+
+The correct reranking benchmark class is **code-search candidate reranking**: text-to-code, code-to-text, code-to-code, issue-to-file/function, and repository-level candidate ranking. Generic MS MARCO/BEIR passage reranking is only a latency/architecture baseline.
+
+**CoREB is the closest public reranking benchmark**, and its conclusion is cautious: no off-the-shelf reranker was net-positive across all three code-search tasks in their reported setup; the positive reranker was **CoREB-Reranker**, a Qwen3-4B LoRA trained on 3.1M code-search examples, which is not CPU-suitable for your local path. ([arXiv][1])
+
+For CPU-only production, this means the reranker shortlist should be chosen by **latency and in-domain delta**, not by generic leaderboard score. Ettin is attractive because it gives a modern, very small cross-encoder family with explicit CPU throughput measurements. It is not code-specific; it must be tested on your code-search labels. ([Hugging Face][2])
+
+[1]: https://arxiv.org/pdf/2605.04615 "Beyond Retrieval: A Multitask Benchmark and Model for Code Search"
+[2]: https://huggingface.co/cross-encoder/ettin-reranker-17m-v1 "cross-encoder/ettin-reranker-17m-v1 · Hugging Face"
