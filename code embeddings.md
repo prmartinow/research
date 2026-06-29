@@ -12,7 +12,9 @@ When evaluating a code embedding model, the AI community relies on a few critica
 	• SWE-bench: Evaluates the model’s competency in mapping long-form issue descriptions to complex codebase structures. 
 	• IdBench: A specialized benchmark specifically designed for evaluating how well a model embeds source code identifiers and variable names. [2, 8]  
 
-Leading Code Embedding Models Compared 
+
+## Leading Code Embedding Models Compared 
+
 Based on performances recorded across the MTEB Code evaluations, models are divided into specialized open-weights models and generalized proprietary APIs. [2]  
 
 | Model Type [2, 9, 10, 11, 12] | Model Name | Key Strengths / Benchmark Context | Cost / Availability  |
@@ -22,12 +24,16 @@ Based on performances recorded across the MTEB Code evaluations, models are divi
 | Proprietary API | Voyage AI (voyage-3-large) | Frequently cited as the best commercial API optimized specifically for code, technical documentation, and long contexts. | $0.18 per 1M tokens  |
 | General Purpose | Qwen3-Embedding (8B) | Exceptional multilingual and text-to-code hybrid capability, dominating general open-source leaderboards. | Open weights  |
 
-Key Evaluation Metrics 
+
+## Key Evaluation Metrics 
+
 Code embedding benchmarks evaluate models using specialized information retrieval (IR) metrics: 
 
 • NDCG@10 (Normalized Discounted Cumulative Gain): Measures the relevance of code snippets in the top 10 returned results, heavily penalizing models that place highly relevant code lower in the stack. 
 • MRR (Mean Reciprocal Rank): Vital for code search engines; it measures how quickly the exact target code block appears in the search results. 
 • Spearman's Rho (ρ): Used in semantic similarity datasets (like IdBench) to evaluate if the model's calculated vector proximity matches human-annotated similarity. [8, 19]  
+
+## Sources
 
 [1] https://modal.com/blog/6-best-code-embedding-models-compared
 [2] https://arxiv.org/html/2508.21290v1
