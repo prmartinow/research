@@ -60,3 +60,16 @@ For CPU-only production, this means the reranker shortlist should be chosen by *
 
 [1]: https://arxiv.org/pdf/2605.04615 "Beyond Retrieval: A Multitask Benchmark and Model for Code Search"
 [2]: https://huggingface.co/cross-encoder/ettin-reranker-17m-v1 "cross-encoder/ettin-reranker-17m-v1 · Hugging Face"
+
+## To-Do
+
+Further research into additional benchmarks and benchmark performance of CPU-only inference suitable open weights model (owm):
+- RTEB Code https://mteb-leaderboard.hf.space/benchmark/RTEB(Code%2C%20beta)
+- CoREB https://mteb-leaderboard.hf.space/benchmark/CoREB(v1)
+  - F2LLM-v2-330M seems promising https://mteb-leaderboard.hf.space/models/codefuse-ai/F2LLM-v2-330M
+- Code Information Retrieval https://mteb-leaderboard.hf.space/benchmark/CoIR
+  - Codefuse models ranking high again https://codefuse.ai/
+- Beyond Retrieval: A Multitask Benchmark and Model for Code Search https://arxiv.org/pdf/2605.04615
+- Awesome Code Benchmark https://github.com/tongye98/Awesome-Code-Benchmark
+- https://www.catalyzex.com/author/Zihan%20Liao
+- Awesome Code LLM https://github.com/codefuse-ai/awesome-code-llm
