@@ -58,3 +58,475 @@ Code embedding benchmarks evaluate models using specialized information retrieva
 [21] https://medium.com/open-intelligence/semble-the-semantic-code-search-library-that-gives-ai-coding-agents-94-recall-at-2-000-tokens-3fbd8031622f
 [22] https://medium.com/google-cloud/mastering-agentic-development-with-gemini-and-roo-code-660a44e545c5
 
+# Later Interaction Models
+
+**Late interaction models** are a retrieval architecture that sits between traditional dense embeddings and full cross-encoder rerankers.
+
+The most influential example is the retrieval model family descended from ColBERT.
+
+---
+
+# The evolution of retrieval
+
+## 1. Sparse retrieval (BM25)
+
+Historically:
+
+```
+Query: "python websocket reconnect"
+
+Document:
+"... websocket reconnect logic ..."
+```
+
+The search engine matches words.
+
+Pros:
+
+* Fast
+* Interpretable
+* Good exact matching
+
+Cons:
+
+* Doesn't understand meaning
+* Misses synonyms
+
+Examples:
+
+* BM25
+* Lucene
+* Elasticsearch
+
+---
+
+## 2. Dense retrieval
+
+Around 2019-2021:
+
+```
+Document
+  ↓
+Encoder
+  ↓
+One vector
+```
+
+Example:
+
+```
+768 dimensions
+```
+
+The entire chunk becomes:
+
+```
+[0.12, -0.88, ...]
+```
+
+Query becomes another vector.
+
+Search:
+
+```
+cosine(query, chunk)
+```
+
+Examples:
+
+* BGE
+* E5
+* Qwen embeddings
+* GTE
+* OpenAI embeddings
+
+Pros:
+
+* Semantic search
+* Compact
+
+Cons:
+
+Information gets compressed into one vector.
+
+A lot gets lost.
+
+---
+
+## The compression problem
+
+Imagine a 300-line source file:
+
+```python
+class RedisCache:
+    ...
+
+class PostgresStorage:
+    ...
+
+class AuthMiddleware:
+    ...
+```
+
+One embedding must represent:
+
+* Redis
+* Postgres
+* Auth
+* Middleware
+* Caching
+* Error handling
+
+simultaneously.
+
+Information is averaged together.
+
+Researchers often call this the **single-vector bottleneck**.
+
+---
+
+# 3. Late interaction
+
+Around 2020, ColBERT introduced a different idea.
+
+Instead of:
+
+```
+Document
+  ↓
+One vector
+```
+
+use:
+
+```
+Document
+  ↓
+Token embeddings
+```
+
+Example:
+
+```
+redis      -> vector
+cache      -> vector
+postgres   -> vector
+middleware -> vector
+auth       -> vector
+```
+
+Store all of them.
+
+Maybe hundreds of vectors.
+
+---
+
+At search time:
+
+Query:
+
+```
+redis cache invalidation
+```
+
+becomes token vectors:
+
+```
+redis
+cache
+invalidation
+```
+
+The model asks:
+
+```
+For query token "redis",
+what is the best matching document token?
+
+For "cache",
+what is the best matching document token?
+
+For "invalidation",
+what is the best matching document token?
+```
+
+Then combines the scores.
+
+This is commonly called **MaxSim** in ColBERT.
+
+---
+
+# Why is this called "late interaction"?
+
+Because query and document embeddings are generated independently first.
+
+Interaction happens later.
+
+Dense retrieval:
+
+```
+Interaction:
+before indexing
+```
+
+Cross encoder:
+
+```
+Interaction:
+immediately
+```
+
+Late interaction:
+
+```
+encode first
+interact later
+```
+
+Hence:
+
+```
+Late Interaction
+```
+
+---
+
+# Why is it so good for code?
+
+Code retrieval has unusually strong requirements.
+
+Developers search for:
+
+```
+retry logic
+websocket reconnect
+jwt validation
+redis cache eviction
+```
+
+The relevant implementation might appear in:
+
+* one function
+* one class
+* ten lines inside a 2000-line file
+
+A single-vector embedding often washes this out.
+
+Late interaction preserves local detail.
+
+---
+
+Example:
+
+Query:
+
+```
+websocket reconnect strategy
+```
+
+File contains:
+
+```python
+def reconnect():
+    ...
+```
+
+plus 500 unrelated lines.
+
+Single-vector embedding:
+
+```
+reconnect signal diluted
+```
+
+Late interaction:
+
+```
+query token "reconnect"
+matches document token "reconnect"
+strong score
+```
+
+This is often exactly what code retrieval needs.
+
+---
+
+# Why code is different from prose
+
+Human language:
+
+```
+dog
+puppy
+canine
+```
+
+similar meanings.
+
+Code:
+
+```
+retry()
+```
+
+and
+
+```
+reconnect()
+```
+
+may be completely different.
+
+Tiny token differences matter.
+
+Late interaction naturally preserves token-level precision.
+
+This is one reason why code search benchmarks frequently show large gains from ColBERT-style retrieval.
+
+---
+
+# Relationship to rerankers
+
+Think of retrieval quality versus cost:
+
+```
+BM25
+    ↓
+Dense embedding
+    ↓
+Late interaction
+    ↓
+Cross encoder reranker
+```
+
+Accuracy increases.
+
+Cost increases.
+
+---
+
+Typical pipeline:
+
+```
+Query
+  ↓
+Embedding search
+  ↓
+Top 100
+  ↓
+Late interaction
+  ↓
+Top 20
+  ↓
+Reranker
+  ↓
+Top 5
+```
+
+or
+
+```
+Query
+  ↓
+Late interaction retrieval
+  ↓
+Top 20
+```
+
+depending on resources.
+
+---
+
+# Why are they suddenly popular again?
+
+Three reasons:
+
+### 1. Better hardware
+
+ColBERT originally looked expensive.
+
+Modern CPUs and GPUs can handle much larger vector indexes.
+
+---
+
+### 2. RAG exposed dense retrieval weaknesses
+
+People discovered:
+
+```
+embedding search
+→ wrong chunks
+→ hallucinations
+```
+
+A lot of failures were retrieval failures.
+
+Late interaction fixes many of these.
+
+---
+
+### 3. Multi-vector indexing matured
+
+Systems such as:
+
+* ColBERT
+* ColBERTv2
+* PLAID
+* Qdrant (multivector support)
+* Vespa
+* Weaviate
+
+made deployment practical.
+
+---
+
+### Late interaction
+
+Produces:
+
+```
+many vectors per chunk
+```
+
+and compares them token-by-token.
+
+Late chunking helps create better embeddings.
+
+Late interaction changes the retrieval mechanism itself.
+
+They can be combined.
+
+---
+
+# For a code repository RAG system
+
+The current best-performing architecture is often:
+
+```
+Code files
+    ↓
+Code-aware embeddings
+    ↓
+ANN retrieval
+    ↓
+Late interaction reranking
+    ↓
+Cross-encoder reranking
+```
+
+or
+
+```
+Code files
+    ↓
+Late interaction indexing
+    ↓
+Top-K retrieval
+```
+
+if you can afford the larger index.
+
+So the most accurate way to think about late interaction is:
+
+> A multi-vector embedding approach that preserves token-level information and narrows much of the quality gap between traditional embedding retrieval and expensive cross-encoder reranking. For code repositories, where small token-level details often determine relevance, late interaction retrieval is frequently one of the strongest retrieval methods available.
+
