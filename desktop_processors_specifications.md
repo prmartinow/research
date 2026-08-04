@@ -2,7 +2,7 @@
 
 | CPU Model | Processor Family | Brand | Launch Date | Socket | Cores / Threads | iGPU Model | Architecture | Compute Cores | GPU Clock | FP32 TFLOPS |
 |---|---|---|---|---|---|---|---|---|---|---|
-| [Intel Core Ultra 400S (Nova Lake)](https://www.intel.com/content/www/us/en/newsroom/resources/press-kits.html) | Nova Lake-S (Core Ultra 400S) | Intel | 01/09/2026 | LGA 1851 / Next Desktop | Next-Gen Core | Intel Xe3 Graphics | Xe3-LPG | Xe3 Cores | 2.4 GHz | 4.0+ TFLOPS |
+| [Intel Core Ultra 400S (Nova Lake)](https://www.intel.com/content/www/us/en/newsroom/resources/press-kits.html) | Nova Lake-S (Core Ultra 400S) | Intel | 01/09/2026 | LGA 1851 | ... | Intel Xe3 Graphics | Xe3-LPG | Xe3 Cores | 2.4 GHz | 4.0+ TFLOPS |
 | [Ryzen 7 7700X3D](https://www.amd.com/en/products/specifications/processors.html) | Ryzen 7000 Series | AMD | 16/07/2026 | AM5 Socket | 8C / 16T | Radeon Graphics | RDNA 2 | 2 CUs | 2.2 GHz | 0.56 TFLOPS |
 | [Ryzen 9 PRO 9965X3D](https://www.amd.com/en/products/specifications/processors.html) | Ryzen PRO 9000 Series | AMD | 30/06/2026 | AM5 Socket | 16C / 32T | Radeon Graphics | RDNA 2 | 2 CUs | 2.2 GHz | 0.56 TFLOPS |
 | [Ryzen 9 PRO 9965](https://www.amd.com/en/products/specifications/processors.html) | Ryzen PRO 9000 Series | AMD | 30/06/2026 | AM5 Socket | 16C / 32T | Radeon Graphics | RDNA 2 | 2 CUs | 2.2 GHz | 0.56 TFLOPS |
