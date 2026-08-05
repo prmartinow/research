@@ -374,6 +374,7 @@
       table-layout: fixed;
     }
 
+    /* STRICT TRUNCATION FOR HEADER CELLS & SPANS TO PREVENT LEAKAGE */
     .data-table th {
       position: sticky;
       top: 0;
@@ -387,10 +388,22 @@
       padding: 0.8rem 1rem;
       border-bottom: 1px solid var(--border-subtle);
       white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
       z-index: 10;
       cursor: pointer;
       transition: background 0.15s ease;
       position: relative;
+      box-sizing: border-box;
+    }
+
+    .data-table th span {
+      display: block;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      width: 100%;
+      pointer-events: none;
     }
 
     .data-table th:hover {
@@ -1031,7 +1044,7 @@
 
       let html = `<table class="data-table"><thead><tr>`;
       columns.forEach(c => {
-        html += `<th data-col-key="${c}"><span>${c}</span></th>`;
+        html += `<th data-col-key="${c}" title="${c}"><span>${c}</span></th>`;
       });
       html += `</tr></thead><tbody>`;
 
