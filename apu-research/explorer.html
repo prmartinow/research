@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>PGlite Database Explorer & Management Studio</title>
-  <meta name="description" content="Web-based PostgreSQL Database Explorer for PGlite WASM engine with 1-to-1 AMD iGPU specs data, multi-select rows/columns, undo/redo, and batch actions.">
+  <meta name="description" content="Web-based PostgreSQL Database Explorer for PGlite WASM engine with 1-to-1 AMD iGPU specs data, column resizing, undo/redo, and batch actions.">
   
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -371,6 +371,7 @@
       border-collapse: collapse;
       font-size: 0.84rem;
       text-align: left;
+      table-layout: fixed;
     }
 
     .data-table th {
@@ -389,6 +390,7 @@
       z-index: 10;
       cursor: pointer;
       transition: background 0.15s ease;
+      position: relative;
     }
 
     .data-table th:hover {
@@ -401,13 +403,29 @@
       box-shadow: inset 0 -3px 0 var(--intel-color);
     }
 
+    /* COLUMN RESIZER HANDLE */
+    .col-resizer {
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 8px;
+      height: 100%;
+      cursor: col-resize;
+      user-select: none;
+      z-index: 20;
+    }
+
+    .col-resizer:hover, .col-resizer.resizing {
+      background: var(--intel-color);
+      box-shadow: 0 0 8px var(--intel-color);
+    }
+
     .data-table td {
       padding: 0.65rem 1rem;
       border-bottom: 1px solid rgba(255, 255, 255, 0.04);
       color: var(--text-primary);
       font-family: var(--font-sans);
       white-space: nowrap;
-      max-width: 380px;
       overflow: hidden;
       text-overflow: ellipsis;
       cursor: pointer;
@@ -609,6 +627,11 @@
         <button class="preset-btn" onclick="setQuery('SELECT cpu, family, igpu, arch, clock FROM cpu_models ORDER BY clock DESC;')">⚡ Top Clocked iGPUs</button>
         <button class="preset-btn" onclick="setQuery('SELECT column_name, data_type FROM information_schema.columns WHERE table_name = \'cpu_specs\';')">🔍 cpu_specs 27-Col Schema</button>
       </div>
+
+      <div>
+        <div class="sidebar-section-title">Column Width Controls</div>
+        <button class="preset-btn" onclick="resetCurrentTableWidths()">🔄 Reset Column Widths</button>
+      </div>
     </aside>
 
     <!-- Main Workspace -->
@@ -735,6 +758,78 @@
       });
     });
 
+    /* --- PERSISTENT COLUMN RESIZING LOGIC --- */
+    function loadSavedColumnWidths(tableName) {
+      try {
+        const saved = localStorage.getItem(`pglite_explorer_col_widths_${tableName}`);
+        return saved ? JSON.parse(saved) : {};
+      } catch (e) {
+        return {};
+      }
+    }
+
+    function saveColumnWidth(tableName, colKey, width) {
+      try {
+        const widths = loadSavedColumnWidths(tableName);
+        widths[colKey] = width;
+        localStorage.setItem(`pglite_explorer_col_widths_${tableName}`, JSON.stringify(widths));
+      } catch (e) {}
+    }
+
+    window.resetCurrentTableWidths = function() {
+      try {
+        localStorage.removeItem(`pglite_explorer_col_widths_${currentActiveTable}`);
+        renderTableGrid();
+      } catch(e) {}
+    };
+
+    function setupColumnResizers(columns) {
+      const savedWidths = loadSavedColumnWidths(currentActiveTable);
+
+      document.querySelectorAll('.data-table th[data-col-key]').forEach(th => {
+        const cKey = th.getAttribute('data-col-key');
+        if (savedWidths[cKey]) {
+          th.style.width = `${savedWidths[cKey]}px`;
+        } else {
+          th.style.width = '180px';
+        }
+
+        let resizer = th.querySelector('.col-resizer');
+        if (!resizer) {
+          resizer = document.createElement('div');
+          resizer.className = 'col-resizer';
+          th.appendChild(resizer);
+        }
+
+        resizer.addEventListener('mousedown', (e) => {
+          e.stopPropagation();
+          e.preventDefault();
+          
+          const startX = e.clientX;
+          const startWidth = th.offsetWidth;
+          resizer.classList.add('resizing');
+
+          function onMouseMove(moveEvent) {
+            const newWidth = Math.max(70, startWidth + (moveEvent.clientX - startX));
+            th.style.width = `${newWidth}px`;
+          }
+
+          function onMouseUp(upEvent) {
+            document.removeEventListener('mousemove', onMouseMove);
+            document.removeEventListener('mouseup', onMouseUp);
+            resizer.classList.remove('resizing');
+            
+            const finalWidth = th.offsetWidth;
+            saveColumnWidth(currentActiveTable, cKey, finalWidth);
+          }
+
+          document.addEventListener('mousemove', onMouseMove);
+          document.addEventListener('mouseup', onMouseUp);
+        });
+      });
+    }
+
+    /* --- UNDO / REDO STATE MANAGERS --- */
     async function pushSnapshotToHistory() {
       if (currentActiveTable.includes('.')) return;
       try {
@@ -936,7 +1031,7 @@
 
       let html = `<table class="data-table"><thead><tr>`;
       columns.forEach(c => {
-        html += `<th data-col-key="${c}">${c}</th>`;
+        html += `<th data-col-key="${c}"><span>${c}</span></th>`;
       });
       html += `</tr></thead><tbody>`;
 
@@ -955,6 +1050,7 @@
       wrapper.innerHTML = html;
 
       setupGridInteractions(columns);
+      setupColumnResizers(columns);
     }
 
     function setupGridInteractions(columns) {
@@ -996,7 +1092,9 @@
       // Header Column Click with Shift & Cmd/Ctrl Support (Mutually Exclusive: clears row selections)
       document.querySelectorAll('.data-table th[data-col-key]').forEach(th => {
         th.addEventListener('click', (e) => {
+          if (e.target.classList.contains('col-resizer')) return;
           e.stopPropagation();
+
           // Clear Row Selections
           selectedRowIndexes.clear();
           lastClickedRowIndex = null;
