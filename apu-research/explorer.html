@@ -644,21 +644,21 @@
             <!-- UNDO / REDO CONTROLS -->
             <div class="history-group">
               <button id="undo-btn" class="history-btn" disabled onclick="handleUndo()" title="Undo (Ctrl+Z / Cmd+Z)">
-                <span>↩️</span> Undo
+                Undo
               </button>
               <button id="redo-btn" class="history-btn" disabled onclick="handleRedo()" title="Redo (Ctrl+Y / Cmd+Shift+Z)">
-                <span>↪️</span> Redo
+                Redo
               </button>
             </div>
           </div>
 
           <div class="batch-actions-group">
-            <button class="action-btn danger-btn" onclick="promptDeleteSelected()">🗑️ Delete Selected</button>
-            <button class="action-btn" onclick="hideSelectedColumns()">❌ Hide Selected Cols</button>
-            <button class="action-btn" onclick="resetCurrentTableWidths()">🔄 Reset Widths</button>
-            <button class="action-btn" onclick="copySelectedCSV()">📋 Copy CSV</button>
-            <button id="export-json-btn" class="action-btn" onclick="exportJSON()">⬇️ Export JSON</button>
-            <button class="action-btn" onclick="clearSelections()">🧹 Clear Selection</button>
+            <button class="action-btn danger-btn" onclick="promptDeleteSelected()">Delete Selected</button>
+            <button class="action-btn" onclick="hideSelectedColumns()">Hide Selected Cols</button>
+            <button class="action-btn" onclick="resetCurrentTableWidths()">Reset Widths</button>
+            <button class="action-btn" onclick="copySelectedCSV()">Copy CSV</button>
+            <button id="export-json-btn" class="action-btn" onclick="exportJSON()">Export JSON</button>
+            <button class="action-btn" onclick="clearSelections()">Clear Selection</button>
           </div>
         </div>
 
@@ -986,7 +986,7 @@
 
         if (isMutation) {
           summary.textContent = `0 Rows (Mutation Executed)`;
-          wrapper.innerHTML = `<div class="success-msg">✅ Statement executed successfully in ${elapsed} ms. Database updated!</div>`;
+          wrapper.innerHTML = `<div class="success-msg">Statement executed successfully in ${elapsed} ms. Database updated!</div>`;
           return;
         }
 
