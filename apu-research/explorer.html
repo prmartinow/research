@@ -743,6 +743,22 @@
       });
     });
 
+    /* --- DROPPED / DELETED COLUMNS PERSISTENCE --- */
+    function getDroppedColumns(tableName) {
+      try {
+        const saved = localStorage.getItem(`pglite_explorer_dropped_cols_${tableName}`);
+        return saved ? new Set(JSON.parse(saved)) : new Set();
+      } catch (e) {
+        return new Set();
+      }
+    }
+
+    function saveDroppedColumns(tableName, droppedSet) {
+      try {
+        localStorage.setItem(`pglite_explorer_dropped_cols_${tableName}`, JSON.stringify(Array.from(droppedSet)));
+      } catch (e) {}
+    }
+
     /* --- DYNAMIC CSS INJECTION FOR HARD 10PX MINIMUM COLUMN WIDTH & LAST COLUMN STRETCH --- */
     function loadSavedColumnWidths(tableName) {
       try {
@@ -851,9 +867,11 @@
       if (currentActiveTable.includes('.')) return;
       try {
         const currentDataRes = await db.query(`SELECT * FROM ${currentActiveTable} ORDER BY id ASC`);
+        const droppedSet = getDroppedColumns(currentActiveTable);
         historyStack.push({
           table: currentActiveTable,
-          rows: currentDataRes.rows || []
+          rows: currentDataRes.rows || [],
+          droppedCols: Array.from(droppedSet)
         });
         redoStack = [];
         updateHistoryButtonsUI();
@@ -873,9 +891,11 @@
       if (historyStack.length === 0) return;
       
       const currentRes = await db.query(`SELECT * FROM ${currentActiveTable} ORDER BY id ASC`);
+      const currentDropped = getDroppedColumns(currentActiveTable);
       redoStack.push({
         table: currentActiveTable,
-        rows: currentRes.rows || []
+        rows: currentRes.rows || [],
+        droppedCols: Array.from(currentDropped)
       });
 
       const prevSnapshot = historyStack.pop();
@@ -887,9 +907,11 @@
       if (redoStack.length === 0) return;
 
       const currentRes = await db.query(`SELECT * FROM ${currentActiveTable} ORDER BY id ASC`);
+      const currentDropped = getDroppedColumns(currentActiveTable);
       historyStack.push({
         table: currentActiveTable,
-        rows: currentRes.rows || []
+        rows: currentRes.rows || [],
+        droppedCols: Array.from(currentDropped)
       });
 
       const nextSnapshot = redoStack.pop();
@@ -900,7 +922,10 @@
     async function restoreTableSnapshot(snapshot) {
       if (!snapshot || !snapshot.table) return;
       const targetTable = snapshot.table;
-      
+
+      // Restore dropped columns list
+      saveDroppedColumns(targetTable, new Set(snapshot.droppedCols || []));
+
       await db.query(`DELETE FROM ${targetTable}`);
 
       if (snapshot.rows && snapshot.rows.length > 0) {
@@ -1013,7 +1038,7 @@
       const summary = document.getElementById('selected-summary');
       clearSelections();
 
-      const isMutation = /^(DELETE|INSERT|UPDATE|DROP|CREATE|TRUNCATE)/i.test(sql);
+      const isMutation = /^(DELETE|INSERT|UPDATE|DROP|CREATE|TRUNCATE|ALTER)/i.test(sql);
       if (isMutation && isUserCommand) {
         await pushSnapshotToHistory();
       }
@@ -1057,7 +1082,9 @@
     function renderTableGrid() {
       if (!lastQueryResult || lastQueryResult.length === 0) return;
       const wrapper = document.getElementById('table-wrapper');
-      const columns = Object.keys(lastQueryResult[0]).filter(c => !hiddenCols.has(c));
+      
+      const droppedSet = getDroppedColumns(currentActiveTable);
+      const columns = Object.keys(lastQueryResult[0]).filter(c => !hiddenCols.has(c) && !droppedSet.has(c));
       currentColumns = columns;
 
       let html = `<table class="data-table"><thead><tr>`;
@@ -1165,35 +1192,57 @@
         return;
       }
 
+      let sqlDesc = '';
+
       if (selectedRowIndexes.size > 0) {
         const sampleRow = lastQueryResult[0];
         const pkCol = Object.keys(sampleRow).find(c => ['id', 'name', 'cpu'].includes(c)) || Object.keys(sampleRow)[0];
         const pkVals = Array.from(selectedRowIndexes).map(rIdx => lastQueryResult[rIdx][pkCol]);
         const formattedVals = pkVals.map(v => (typeof v === 'number' || !isNaN(v)) ? v : `'${String(v).replace(/'/g, "''")}'`).join(', ');
-        const sqlDelete = `DELETE FROM ${currentActiveTable} WHERE ${pkCol} IN (${formattedVals});`;
+        sqlDesc = `DELETE FROM ${currentActiveTable} WHERE ${pkCol} IN (${formattedVals});`;
+      } else if (selectedColKeys.size > 0) {
+        const colsToDrop = Array.from(selectedColKeys);
+        sqlDesc = `ALTER TABLE ${currentActiveTable} DROP COLUMN ` + colsToDrop.map(c => `"${c}"`).join(', ');
+      }
 
-        document.getElementById('modal-table-name').textContent = currentActiveTable;
-        document.getElementById('modal-pk-desc').textContent = sqlDelete;
+      document.getElementById('modal-table-name').textContent = currentActiveTable;
+      document.getElementById('modal-pk-desc').textContent = sqlDesc;
 
-        const modal = document.getElementById('delete-modal');
-        modal.classList.add('open');
+      const modal = document.getElementById('delete-modal');
+      modal.classList.add('open');
 
-        document.getElementById('modal-confirm-btn').onclick = async () => {
-          closeDeleteModal();
-          await pushSnapshotToHistory();
+      document.getElementById('modal-confirm-btn').onclick = async () => {
+        closeDeleteModal();
+        await pushSnapshotToHistory();
 
+        if (selectedRowIndexes.size > 0) {
+          const sampleRow = lastQueryResult[0];
+          const pkCol = Object.keys(sampleRow).find(c => ['id', 'name', 'cpu'].includes(c)) || Object.keys(sampleRow)[0];
+          const pkVals = Array.from(selectedRowIndexes).map(rIdx => lastQueryResult[rIdx][pkCol]);
+          const formattedVals = pkVals.map(v => (typeof v === 'number' || !isNaN(v)) ? v : `'${String(v).replace(/'/g, "''")}'`).join(', ');
+          const sqlDelete = `DELETE FROM ${currentActiveTable} WHERE ${pkCol} IN (${formattedVals});`;
+          
           setQuery(sqlDelete);
           await db.query(sqlDelete);
-          clearSelections();
-          await updateSidebarCounts();
-          
-          const refreshSql = `SELECT * FROM ${currentActiveTable} ORDER BY id ASC LIMIT 100;`;
-          setQuery(refreshSql);
-          await executeQuery(false);
-        };
-      } else if (selectedColKeys.size > 0) {
-        hideSelected();
-      }
+        } else if (selectedColKeys.size > 0) {
+          const droppedSet = getDroppedColumns(currentActiveTable);
+          for (const cKey of selectedColKeys) {
+            droppedSet.add(cKey);
+            try {
+              await db.query(`ALTER TABLE ${currentActiveTable} DROP COLUMN "${cKey}";`);
+            } catch(e) {}
+          }
+          saveDroppedColumns(currentActiveTable, droppedSet);
+        }
+
+        clearSelections();
+        updateHistoryButtonsUI();
+        await updateSidebarCounts();
+        
+        const refreshSql = `SELECT * FROM ${currentActiveTable} ORDER BY id ASC LIMIT 100;`;
+        setQuery(refreshSql);
+        await executeQuery(false);
+      };
     };
 
     window.closeDeleteModal = function() {
