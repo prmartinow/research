@@ -657,6 +657,7 @@
             <button class="action-btn danger-btn" onclick="promptDeleteSelected()">Delete Selected</button>
             <button class="action-btn" onclick="hideSelected()">Hide</button>
             <button class="action-btn" onclick="unhideAll()">Unhide All</button>
+            <button class="action-btn" onclick="restoreColumns()">Restore Columns</button>
             <button class="action-btn" onclick="resetCurrentTableWidths()">Reset Widths</button>
             <button class="action-btn" onclick="clearSelections()">Clear Selection</button>
           </div>
@@ -780,6 +781,11 @@
         localStorage.setItem(`pglite_explorer_dropped_cols_${tableName}`, JSON.stringify(Array.from(droppedSet)));
       } catch (e) {}
     }
+
+    window.restoreColumns = function() {
+      saveDroppedColumns(currentActiveTable, new Set());
+      renderTableGrid();
+    };
 
     /* --- DYNAMIC CSS INJECTION FOR HARD 10PX MINIMUM COLUMN WIDTH & LAST COLUMN STRETCH --- */
     function loadSavedColumnWidths(tableName) {
