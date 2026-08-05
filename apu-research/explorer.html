@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>PGlite Database Explorer & Management Studio</title>
-  <meta name="description" content="Web-based PostgreSQL Database Explorer for PGlite WASM engine with 1-to-1 AMD iGPU specs data, column resizing, undo/redo, and batch actions.">
+  <meta name="description" content="Web-based PostgreSQL Database Explorer for PGlite WASM engine with 1-to-1 AMD iGPU specs data, detached column resizing, undo/redo, and batch actions.">
   
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -21,7 +21,7 @@
   </script>
   <style>
     :root {
-      --sidebar-width: 310px;
+      --sidebar-width: 280px;
     }
 
     body {
@@ -120,28 +120,6 @@
       border-radius: 12px;
       background: rgba(255, 255, 255, 0.06);
       color: var(--text-muted);
-    }
-
-    .preset-btn {
-      width: 100%;
-      text-align: left;
-      padding: 0.55rem 0.8rem;
-      border-radius: 8px;
-      background: rgba(255, 255, 255, 0.02);
-      border: 1px solid var(--border-subtle);
-      color: var(--text-secondary);
-      font-size: 0.8rem;
-      font-family: var(--font-main);
-      font-weight: 500;
-      cursor: pointer;
-      transition: all var(--transition-fast);
-      margin-bottom: 0.45rem;
-    }
-
-    .preset-btn:hover {
-      background: rgba(255, 255, 255, 0.06);
-      color: #ffffff;
-      border-color: rgba(255, 255, 255, 0.18);
     }
 
     /* Main Workspace */
@@ -366,15 +344,17 @@
       user-select: none;
     }
 
+    /* DETACHED TABLE LAYOUT: width: max-content ensures columns do not share or stretch overall table width */
     .data-table {
-      width: 100%;
+      width: max-content;
+      min-width: 100%;
       border-collapse: collapse;
       font-size: 0.84rem;
       text-align: left;
       table-layout: fixed;
     }
 
-    /* STRICT TRUNCATION FOR HEADER CELLS & SPANS TO PREVENT LEAKAGE */
+    /* STRICT TRUNCATION & BOUNDS FOR HEADER CELLS & SPANS */
     .data-table th {
       position: sticky;
       top: 0;
@@ -632,19 +612,6 @@
           </li>
         </ul>
       </div>
-
-      <div>
-        <div class="sidebar-section-title">SQL Query Presets</div>
-        <button class="preset-btn" onclick="setQuery('SELECT name, family, series, of_cpu_cores, of_threads, max_boost_clock, graphics_model, graphics_core_count FROM cpu_specs LIMIT 20;')">📊 1-to-1 CPU Specs View</button>
-        <button class="preset-btn" onclick="setQuery('SELECT name, graphics_model, graphics_core_count, graphics_frequency FROM igpu_specs LIMIT 20;')">🎮 1-to-1 iGPU Specs View</button>
-        <button class="preset-btn" onclick="setQuery('SELECT cpu, family, igpu, arch, clock FROM cpu_models ORDER BY clock DESC;')">⚡ Top Clocked iGPUs</button>
-        <button class="preset-btn" onclick="setQuery('SELECT column_name, data_type FROM information_schema.columns WHERE table_name = \'cpu_specs\';')">🔍 cpu_specs 27-Col Schema</button>
-      </div>
-
-      <div>
-        <div class="sidebar-section-title">Column Width Controls</div>
-        <button class="preset-btn" onclick="resetCurrentTableWidths()">🔄 Reset Column Widths</button>
-      </div>
     </aside>
 
     <!-- Main Workspace -->
@@ -688,6 +655,7 @@
           <div class="batch-actions-group">
             <button class="action-btn danger-btn" onclick="promptDeleteSelected()">🗑️ Delete Selected</button>
             <button class="action-btn" onclick="hideSelectedColumns()">❌ Hide Selected Cols</button>
+            <button class="action-btn" onclick="resetCurrentTableWidths()">🔄 Reset Widths</button>
             <button class="action-btn" onclick="copySelectedCSV()">📋 Copy CSV</button>
             <button id="export-json-btn" class="action-btn" onclick="exportJSON()">⬇️ Export JSON</button>
             <button class="action-btn" onclick="clearSelections()">🧹 Clear Selection</button>
@@ -771,7 +739,7 @@
       });
     });
 
-    /* --- PERSISTENT COLUMN RESIZING LOGIC --- */
+    /* --- PERSISTENT INDEPENDENT COLUMN RESIZING LOGIC --- */
     function loadSavedColumnWidths(tableName) {
       try {
         const saved = localStorage.getItem(`pglite_explorer_col_widths_${tableName}`);
