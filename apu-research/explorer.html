@@ -344,14 +344,20 @@
       user-select: none;
     }
 
-    /* DETACHED TABLE LAYOUT: width: max-content ensures columns do not share or stretch overall table width */
+    /* DETACHED TABLE LAYOUT WITH NO MIN-WIDTH CONSTRAINT ON THE TABLE */
     .data-table {
       width: max-content;
-      min-width: 100%;
       border-collapse: collapse;
       font-size: 0.84rem;
       text-align: left;
       table-layout: fixed;
+    }
+
+    /* STRICT 10PX MIN-WIDTH CAPABILITY FOR CELLS */
+    .data-table th,
+    .data-table td {
+      min-width: 0 !important;
+      box-sizing: border-box;
     }
 
     /* STRICT TRUNCATION & BOUNDS FOR HEADER CELLS & SPANS */
@@ -374,7 +380,6 @@
       cursor: pointer;
       transition: background 0.15s ease;
       position: relative;
-      box-sizing: border-box;
     }
 
     .data-table th span {
@@ -769,11 +774,11 @@
 
       document.querySelectorAll('.data-table th[data-col-key]').forEach(th => {
         const cKey = th.getAttribute('data-col-key');
-        if (savedWidths[cKey]) {
-          th.style.width = `${savedWidths[cKey]}px`;
-        } else {
-          th.style.width = '180px';
-        }
+        const targetW = savedWidths[cKey] !== undefined ? savedWidths[cKey] : 180;
+        
+        th.style.width = `${targetW}px`;
+        th.style.minWidth = `${targetW}px`;
+        th.style.maxWidth = `${targetW}px`;
 
         let resizer = th.querySelector('.col-resizer');
         if (!resizer) {
@@ -793,6 +798,8 @@
           function onMouseMove(moveEvent) {
             const newWidth = Math.max(10, startWidth + (moveEvent.clientX - startX));
             th.style.width = `${newWidth}px`;
+            th.style.minWidth = `${newWidth}px`;
+            th.style.maxWidth = `${newWidth}px`;
           }
 
           function onMouseUp(upEvent) {
