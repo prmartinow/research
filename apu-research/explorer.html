@@ -655,10 +655,9 @@
 
           <div class="batch-actions-group">
             <button class="action-btn danger-btn" onclick="promptDeleteSelected()">Delete Selected</button>
-            <button class="action-btn" onclick="hideSelectedColumns()">Hide Selected Cols</button>
+            <button class="action-btn" onclick="hideSelected()">Hide</button>
+            <button class="action-btn" onclick="unhideAll()">Unhide All</button>
             <button class="action-btn" onclick="resetCurrentTableWidths()">Reset Widths</button>
-            <button class="action-btn" onclick="copySelectedCSV()">Copy CSV</button>
-            <button id="export-json-btn" class="action-btn" onclick="exportJSON()">Export JSON</button>
             <button class="action-btn" onclick="clearSelections()">Clear Selection</button>
           </div>
         </div>
@@ -689,8 +688,9 @@
     import { initDatabase, db } from './db.js';
 
     let lastQueryResult = [];
-    let currentActiveTable = 'cpu_specs';
+    let currentActiveTable = localStorage.getItem('pglite_explorer_active_table') || 'cpu_specs';
     let hiddenCols = new Set();
+    let hiddenRowIndexes = new Set();
     let currentColumns = [];
 
     // Selection State (Mutually Exclusive: either Row Selection or Column Selection)
@@ -706,7 +706,9 @@
     window.addEventListener('DOMContentLoaded', async () => {
       await initDatabase();
       await updateSidebarCounts();
-      loadTable('cpu_specs');
+      
+      const savedTable = localStorage.getItem('pglite_explorer_active_table') || 'cpu_specs';
+      loadTable(savedTable);
 
       // Click outside table to clear selection
       document.addEventListener('click', (e) => {
@@ -774,7 +776,6 @@
         const isLast = index === columns.length - 1;
 
         if (isLast) {
-          // LAST COLUMN FILLS REMAINING SPACE WITHOUT GAPS
           css += `
             .data-table th[data-col-key="${colKey}"],
             .data-table td[data-col-key="${colKey}"] {
@@ -783,7 +784,6 @@
             }
           `;
         } else {
-          // COLUMNS 1 TO N-1 ARE RIGIDLY LOCKED TO THEIR TARGET PIXEL WIDTH
           css += `
             .data-table th[data-col-key="${colKey}"],
             .data-table td[data-col-key="${colKey}"] {
@@ -939,7 +939,10 @@
 
     window.loadTable = function(tableName) {
       currentActiveTable = tableName;
+      localStorage.setItem('pglite_explorer_active_table', tableName);
+
       hiddenCols.clear();
+      hiddenRowIndexes.clear();
       clearSelections();
       document.querySelectorAll('.table-item').forEach(el => el.classList.remove('active'));
       const activeEl = Array.from(document.querySelectorAll('.table-item')).find(el => el.textContent.includes(tableName));
@@ -973,7 +976,8 @@
     window.updateSelectionUI = function() {
       document.getElementById('selected-summary').textContent = `${selectedRowIndexes.size} Rows, ${selectedColKeys.size} Cols`;
       
-      document.querySelectorAll('.data-table tbody tr').forEach((tr, rIdx) => {
+      document.querySelectorAll('.data-table tbody tr').forEach((tr) => {
+        const rIdx = parseInt(tr.getAttribute('data-row-index'), 10);
         if (selectedRowIndexes.has(rIdx)) {
           tr.classList.add('row-selected');
         } else {
@@ -1023,6 +1027,14 @@
         if (isMutation) {
           summary.textContent = `0 Rows (Mutation Executed)`;
           wrapper.innerHTML = `<div class="success-msg">Statement executed successfully in ${elapsed} ms. Database updated!</div>`;
+          
+          if (!currentActiveTable.includes('.')) {
+            setTimeout(() => {
+              const refreshSql = `SELECT * FROM ${currentActiveTable} ORDER BY id ASC LIMIT 100;`;
+              setQuery(refreshSql);
+              executeQuery(false);
+            }, 600);
+          }
           return;
         }
 
@@ -1054,6 +1066,8 @@
       html += `</tr></thead><tbody>`;
 
       lastQueryResult.forEach((row, rIdx) => {
+        if (hiddenRowIndexes.has(rIdx)) return;
+
         html += `<tr data-row-index="${rIdx}">`;
         columns.forEach(c => {
           let val = row[c];
@@ -1144,95 +1158,67 @@
       });
     }
 
-    window.promptDeleteSelected = function() {
+    window.promptDeleteSelected = async function() {
       if (selectedRowIndexes.size === 0 && selectedColKeys.size === 0) {
-        alert('Please select rows or column(s) to delete (Click, Shift+Click, or Cmd/Ctrl+Click).');
+        alert('Please select row(s) or column(s) to delete (Click, Shift+Click, or Cmd/Ctrl+Click).');
         return;
       }
-
-      let sqlDelete = '';
 
       if (selectedRowIndexes.size > 0) {
         const sampleRow = lastQueryResult[0];
         const pkCol = Object.keys(sampleRow).find(c => ['id', 'name', 'cpu'].includes(c)) || Object.keys(sampleRow)[0];
         const pkVals = Array.from(selectedRowIndexes).map(rIdx => lastQueryResult[rIdx][pkCol]);
-        sqlDelete = `DELETE FROM ${currentActiveTable} WHERE ${pkCol} IN (${pkVals.map(v => `'${String(v).replace(/'/g, "''")}'`).join(', ')});`;
-        
-        document.getElementById('modal-delete-count').textContent = `${selectedRowIndexes.size} rows`;
-      } else if (selectedColKeys.size > 0) {
-        sqlDelete = `Hiding selected column(s): ${Array.from(selectedColKeys).join(', ')}`;
-        document.getElementById('modal-delete-count').textContent = `${selectedColKeys.size} column(s)`;
-      }
+        const sqlDelete = `DELETE FROM ${currentActiveTable} WHERE ${pkCol} IN (${pkVals.map(v => `'${String(v).replace(/'/g, "''")}'`).join(', ')});`;
 
-      document.getElementById('modal-table-name').textContent = currentActiveTable;
-      document.getElementById('modal-pk-desc').textContent = sqlDelete;
+        document.getElementById('modal-table-name').textContent = currentActiveTable;
+        document.getElementById('modal-pk-desc').textContent = sqlDelete;
 
-      const modal = document.getElementById('delete-modal');
-      modal.classList.add('open');
+        const modal = document.getElementById('delete-modal');
+        modal.classList.add('open');
 
-      document.getElementById('modal-confirm-btn').onclick = async () => {
-        closeDeleteModal();
-        if (selectedRowIndexes.size > 0) {
+        document.getElementById('modal-confirm-btn').onclick = async () => {
+          closeDeleteModal();
+          await pushSnapshotToHistory();
+
           setQuery(sqlDelete);
-          await executeQuery(true);
-          setTimeout(() => {
-            if (!currentActiveTable.includes('.')) loadTable(currentActiveTable);
-          }, 300);
-        } else if (selectedColKeys.size > 0) {
-          hideSelectedColumns();
-        }
-      };
+          await db.query(sqlDelete);
+          clearSelections();
+          await updateSidebarCounts();
+          
+          const refreshSql = `SELECT * FROM ${currentActiveTable} ORDER BY id ASC LIMIT 100;`;
+          setQuery(refreshSql);
+          await executeQuery(false);
+        };
+      } else if (selectedColKeys.size > 0) {
+        hideSelected();
+      }
     };
 
     window.closeDeleteModal = function() {
       document.getElementById('delete-modal').classList.remove('open');
     };
 
-    window.hideSelectedColumns = function() {
-      if (selectedColKeys.size === 0) {
-        alert('Please click column header(s) to select columns to hide.');
+    window.hideSelected = function() {
+      if (selectedRowIndexes.size === 0 && selectedColKeys.size === 0) {
+        alert('Please select row(s) or column(s) to hide.');
         return;
       }
-      selectedColKeys.forEach(c => hiddenCols.add(c));
-      selectedColKeys.clear();
+
+      if (selectedRowIndexes.size > 0) {
+        selectedRowIndexes.forEach(rIdx => hiddenRowIndexes.add(rIdx));
+      }
+      if (selectedColKeys.size > 0) {
+        selectedColKeys.forEach(c => hiddenCols.add(c));
+      }
+
+      clearSelections();
       renderTableGrid();
-      updateSelectionUI();
     };
 
-    window.copySelectedCSV = function() {
-      if (!lastQueryResult || lastQueryResult.length === 0) return;
-
-      const rowsToCopy = selectedRowIndexes.size > 0 
-        ? Array.from(selectedRowIndexes).map(idx => lastQueryResult[idx])
-        : lastQueryResult;
-
-      const colsToCopy = selectedColKeys.size > 0 
-        ? Array.from(selectedColKeys)
-        : Object.keys(rowsToCopy[0]).filter(c => !hiddenCols.has(c));
-
-      let csv = colsToCopy.join(',') + '\n';
-      rowsToCopy.forEach(r => {
-        csv += colsToCopy.map(c => `"${String(r[c] || '').replace(/"/g, '""')}"`).join(',') + '\n';
-      });
-
-      navigator.clipboard.writeText(csv).then(() => {
-        alert(`Copied ${rowsToCopy.length} rows and ${colsToCopy.length} columns to clipboard as CSV!`);
-      });
-    };
-
-    window.exportJSON = function() {
-      if (!lastQueryResult || lastQueryResult.length === 0) return;
-      const exportRows = selectedRowIndexes.size > 0 
-        ? Array.from(selectedRowIndexes).map(idx => lastQueryResult[idx])
-        : lastQueryResult;
-
-      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportRows, null, 2));
-      const downloadAnchor = document.createElement('a');
-      downloadAnchor.setAttribute("href", dataStr);
-      downloadAnchor.setAttribute("download", `${currentActiveTable}_export.json`);
-      document.body.appendChild(downloadAnchor);
-      downloadAnchor.click();
-      downloadAnchor.remove();
+    window.unhideAll = function() {
+      hiddenCols.clear();
+      hiddenRowIndexes.clear();
+      renderTableGrid();
     };
   </script>
 </body>
