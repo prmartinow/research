@@ -1,0 +1,10 @@
+{
+  "name": "apu-research",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "APU & Desktop Processors Research Platform",
+  "main": "app.js",
+  "dependencies": {
+    "@electric-sql/pglite": "^0.2.14"
+  }
+}

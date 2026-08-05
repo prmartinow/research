@@ -1,0 +1,76 @@
+{
+  "cpu-amd-zen5": {
+    "id": "cpu-amd-zen5",
+    "brand": "amd",
+    "type": "cpu",
+    "dateStr": "October 31, 2024",
+    "url": "https://www.google.com/search?q=AMD+Launches+Ryzen+7+9800X3D+Processor+site%3Air.amd.com&authuser=0",
+    "title": "AMD Launches Ryzen 7 9800X3D Processor site:ir.amd.com - Google Search",
+    "h1": "Search Results",
+    "headline": "The Gaming Legend Continues — AMD Introduces Next-Generation AMD Ryzen 7 9800X3D Processor",
+    "subheadline": "Powered by \"Zen 5\" architecture and 2nd Gen AMD 3D V-Cache technology, delivering up to 5.2 GHz boost clock.",
+    "quote": "\"With the introduction of the Ryzen 7 9800X3D processor, built on our advanced 'Zen 5' architecture, we are elevating gaming performance like never before.\"",
+    "quoteAuthor": "— Jack Huynh, Senior Vice President and GM, Computing and Graphics, AMD",
+    "specs": [
+      {
+        "label": "Process Technology",
+        "val": "TSMC 4nm Core + 6nm IOD"
+      },
+      {
+        "label": "iGPU Architecture",
+        "val": "AMD RDNA 2 (2 CUs @ 2.2 GHz)"
+      },
+      {
+        "label": "3D V-Cache Topology",
+        "val": "2nd Gen 3D V-Cache (Underneath CCD)"
+      },
+      {
+        "label": "Socket Platform",
+        "val": "Socket AM5 (DDR5 & PCIe 5.0)"
+      }
+    ],
+    "highlights": [
+      "Built on 2nd Generation AMD 3D V-Cache technology placing 64MB SRAM underneath CPU cores.",
+      "Native full 512-bit vector execution pipeline for AVX-512 math.",
+      "Average 16% IPC improvement over Zen 4 architecture with 5.2 GHz max boost clock.",
+      "Integrated 2 CU RDNA 2 iGPU for display output and hardware AV1 decode."
+    ]
+  },
+  "cpu-intel-arrow-lake": {
+    "id": "cpu-intel-arrow-lake",
+    "brand": "intel",
+    "type": "cpu",
+    "dateStr": "October 10, 2024",
+    "url": "https://www.google.com/search?q=Intel+Core+Ultra+200S+Series+Desktop+Processors+press+release+site%3Anewsroom.intel.com&authuser=0",
+    "title": "Intel Core Ultra 200S Series Desktop Processors press release site:newsroom.intel.com - Google Search",
+    "h1": "Search Results",
+    "headline": "Intel Launches Core Ultra 200S Series Desktop Processors: First AI PC Desktop Platform",
+    "subheadline": "Disaggregated Foveros 3D tiles slash package power by up to 33% while introducing dedicated NPU 3 engine.",
+    "quote": "\"The new Intel Core Ultra 200S series processors scale to deliver on our goals to significantly reduce power consumption while maintaining outstanding gaming performance.\"",
+    "quoteAuthor": "— Robert Hallock, Intel Vice President & GM, Client AI & Technical Marketing",
+    "specs": [
+      {
+        "label": "Packaging Technology",
+        "val": "TSMC N3B + N6 + N5 on Intel Foveros 3D"
+      },
+      {
+        "label": "iGPU Architecture",
+        "val": "Intel Graphics (4 Xe-Cores @ 2.0 GHz)"
+      },
+      {
+        "label": "AI Acceleration",
+        "val": "NPU 3 (36 Total Platform AI TOPS)"
+      },
+      {
+        "label": "Socket Platform",
+        "val": "LGA 1851 (Intel 800 Series)"
+      }
+    ],
+    "highlights": [
+      "Lion Cove P-cores and Skymont E-cores built on disaggregated Foveros 3D tiles.",
+      "Up to 33% lower package power consumption in gaming and creation workloads.",
+      "First Intel desktop processor family featuring a dedicated Neural Processing Unit (NPU 3).",
+      "Integrated Intel Graphics tile with 4 Xe-Cores, ray tracing, and XeSS upscaling."
+    ]
+  }
+}
