@@ -1,0 +1,110 @@
+[
+  {
+    "id": "cpu-intel-10th",
+    "brand": "intel",
+    "url": "https://newsroom.intel.com/news",
+    "status": 200,
+    "title": "News - Newsroom",
+    "h1": "News",
+    "desc": ""
+  },
+  {
+    "id": "apu-amd-renoir",
+    "brand": "amd",
+    "url": "https://ir.amd.com/news-events/press-releases/detail/964/amd-commemorates-25-years-of-corporate-responsibility-reporting",
+    "status": 200,
+    "title": "AMD Commemorates 25 Years of Corporate Responsibility Reporting :: Advanced Micro Devices, Inc. (AMD)",
+    "h1": "AMD Commemorates 25 Years of Corporate Responsibility Reporting",
+    "desc": "\n― Annual update highlights progress on environmental, social and community initiatives ―\n\nSANTA CLARA, Calif., July  30, 2020  (GLOBE NEWSWIRE)…..."
+  },
+  {
+    "id": "cpu-intel-11th",
+    "brand": "intel",
+    "url": "https://newsroom.intel.com/news",
+    "status": 200,
+    "title": "News - Newsroom",
+    "h1": "News",
+    "desc": ""
+  },
+  {
+    "id": "apu-amd-cezanne",
+    "brand": "amd",
+    "url": "https://ir.amd.com/news-events/press-releases/detail/1005/amd-epyc-processors-accelerate-high-performance-computing-capability-in-perlmutter-supercomputer",
+    "status": 200,
+    "title": "AMD EPYC™ Processors Accelerate High Performance Computing Capability in Perlmutter Supercomputer :: Advanced Micro Devices, Inc. (AMD)",
+    "h1": "AMD EPYC™ Processors Accelerate High Performance Computing Capability in Perlmutter Supercomputer",
+    "desc": "\n— New system will enable next-gen research on clean energy, climate and more for the National Energy Research Scientific Computing Center — …..."
+  },
+  {
+    "id": "cpu-intel-12th",
+    "brand": "intel",
+    "url": "https://newsroom.intel.com/news",
+    "status": 200,
+    "title": "News - Newsroom",
+    "h1": "News",
+    "desc": ""
+  },
+  {
+    "id": "igpu-amd-rdna2-am5",
+    "brand": "amd",
+    "url": "https://ir.amd.com/news-events/press-releases/detail/1085/amd-and-ecarx-to-collaborate-on-immersive-digital-cockpit-in-vehicle-computing-platform-for-next-generation-electric-vehicles",
+    "status": 200,
+    "title": "AMD and ECARX to Collaborate on Immersive Digital Cockpit In-Vehicle Computing Platform for Next-Generation Electric Vehicles :: Advanced Micro Devices, Inc. (AMD)",
+    "h1": "AMD and ECARX to Collaborate on Immersive Digital Cockpit In-Vehicle Computing Platform for Next-Generation Electric Vehicles",
+    "desc": "\nAdvanced digital cockpit will be powered by AMD Ryzen™ Embedded V2000 Processor and AMD Radeon™ RX 6000 Series GPUs\n\nSANTA CLARA, Calif., Aug. …..."
+  },
+  {
+    "id": "cpu-intel-13th",
+    "brand": "intel",
+    "url": "https://newsroom.intel.com/news",
+    "status": 200,
+    "title": "News - Newsroom",
+    "h1": "News",
+    "desc": ""
+  },
+  {
+    "id": "cpu-intel-14th",
+    "brand": "intel",
+    "url": "https://newsroom.intel.com/news",
+    "status": 200,
+    "title": "News - Newsroom",
+    "h1": "News",
+    "desc": ""
+  },
+  {
+    "id": "apu-amd-phoenix",
+    "brand": "amd",
+    "url": "https://ir.amd.com/news-events/press-releases/detail/1173/amd-delivers-leadership-portfolio-of-data-center-ai-solutions-with-amd-instinct-mi300-series",
+    "status": 200,
+    "title": "AMD Delivers Leadership Portfolio of Data Center AI Solutions with AMD Instinct MI300 Series :: Advanced Micro Devices, Inc. (AMD)",
+    "h1": "AMD Delivers Leadership Portfolio of Data Center AI Solutions with AMD Instinct MI300 Series",
+    "desc": "\n— Dell Technologies, Hewlett Packard Enterprise, Lenovo, Meta, Microsoft, Oracle, Supermicro and others showcase AMD hardware for high…..."
+  },
+  {
+    "id": "cpu-amd-zen5",
+    "brand": "amd",
+    "url": "https://ir.amd.com/news-events/press-releases/detail/1218/amd-unveils-leadership-ai-solutions-at-advancing-ai-2024",
+    "status": 200,
+    "title": "AMD Unveils Leadership AI Solutions at Advancing AI 2024 :: Advanced Micro Devices, Inc. (AMD)",
+    "h1": "AMD Unveils Leadership AI Solutions at Advancing AI 2024",
+    "desc": "— AMD launches 5th Gen AMD EPYC processors, AMD Instinct MI325X accelerators, next gen networking solutions and AMD Ryzen AI PRO processors…..."
+  },
+  {
+    "id": "cpu-intel-arrow-lake",
+    "brand": "intel",
+    "url": "https://newsroom.intel.com/news",
+    "status": 200,
+    "title": "News - Newsroom",
+    "h1": "News",
+    "desc": ""
+  },
+  {
+    "id": "cpu-intel-nova-lake",
+    "brand": "intel",
+    "url": "https://newsroom.intel.com/news",
+    "status": 200,
+    "title": "News - Newsroom",
+    "h1": "News",
+    "desc": ""
+  }
+]

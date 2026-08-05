@@ -1,0 +1,575 @@
+/* Minimalist Horizontal Timeline UI/UX for Intel & AMD iGPU Releases */
+
+:root {
+  /* Soothing Dark Theme Tokens */
+  --bg-dark: #07090e;
+  --border-subtle: rgba(255, 255, 255, 0.06);
+
+  /* Soft, Eye-Friendly Colors (No Stark Whites) */
+  --intel-color: #7dd3fc;        /* Muted Ice Blue */
+  --intel-glow: rgba(125, 211, 252, 0.15);
+
+  --amd-color: #fda4af;          /* Muted Soft Rose */
+  --amd-glow: rgba(253, 164, 175, 0.15);
+
+  --text-primary: #cbd5e1;       /* Soft Slate Off-White (Easy on the Eyes) */
+  --text-secondary: #94a3b8;     /* Medium Silver */
+  --text-muted: #64748b;         /* Muted Slate */
+
+  /* Typography - Clean & Regular */
+  --font-main: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: 'JetBrains Mono', SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  --transition-fast: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-smooth: 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+html {
+  scrollbar-gutter: stable;
+  overflow-y: scroll;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-main);
+  background-color: var(--bg-dark);
+  color: var(--text-primary);
+  line-height: 1.5;
+  min-height: 100vh;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+  position: relative;
+  background-image: 
+    radial-gradient(circle at 50% 0%, rgba(56, 189, 248, 0.03) 0%, transparent 50%),
+    radial-gradient(circle at 20% 80%, rgba(251, 113, 133, 0.02) 0%, transparent 40%),
+    radial-gradient(circle at 80% 70%, rgba(255, 255, 255, 0.015) 0%, transparent 40%);
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: 
+    radial-gradient(ellipse at 50% -10%, rgba(125, 211, 252, 0.045) 0%, transparent 65%),
+    radial-gradient(ellipse at 50% 110%, rgba(253, 164, 175, 0.035) 0%, transparent 65%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Minimal Header & Page Selector Frame */
+.header {
+  padding: 0.8rem 2rem 0.4rem;
+  text-align: center;
+  max-width: 100%;
+  margin: 0 auto;
+  flex-shrink: 0;
+}
+
+.nav-tabs {
+  display: inline-flex;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  padding: 3px;
+  margin-bottom: 0;
+}
+
+.nav-tab-btn {
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 0.85rem;
+  font-weight: 500;
+  padding: 0.4rem 1.2rem;
+  border-radius: 999px;
+  transition: background var(--transition-fast), color var(--transition-fast);
+  user-select: none;
+}
+
+.nav-tab-btn:hover {
+  color: #ffffff;
+}
+
+.nav-tab-btn.active {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  font-weight: 500;
+}
+
+/* Non-Scrolling Main Horizontal Timeline Track Outer Container */
+.timeline-main-container {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Horizontal Timeline Track Container (Horizontal Drag/Scroll Only) */
+.timeline-viewport {
+  position: relative;
+  flex: 1;
+  position: relative;
+  overflow-x: auto;
+  overflow-y: hidden;
+  cursor: grab;
+  scroll-behavior: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  opacity: 1;
+  transition: opacity 0.12s ease-in;
+}
+
+.timeline-viewport:active {
+  cursor: grabbing;
+}
+
+.timeline-track-wrapper {
+  position: relative;
+  width: 2700px;
+  min-width: 2700px;
+  height: 880px;
+  display: flex;
+  align-items: center;
+  margin: 0 auto;
+  padding: 0 40px;
+  box-sizing: border-box;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+}
+
+/* Full-Height Ambient Swimlane Background Zones (Top CPUs, Bottom iGPUs) - Extended Top & Bottom Fades */
+.swimlane-zone {
+  position: absolute;
+  left: -400px;
+  right: -400px;
+  pointer-events: none;
+  z-index: 0;
+  box-sizing: border-box;
+}
+
+.swimlane-zone.cpu-zone {
+  top: -120px;
+  height: 490px;
+  background: transparent;
+}
+
+.swimlane-zone.igpu-zone {
+  top: 370px;
+  height: 490px;
+  background: transparent;
+}
+
+/* Screen-View Pinned Ambient Watermark Text (CPUs top, iGPUs bottom) */
+.watermark-label {
+  position: absolute;
+  left: 2.5rem;
+  font-family: var(--font-mono);
+  font-size: 2.4rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: rgba(255, 255, 255, 0.045);
+  pointer-events: none;
+  user-select: none;
+  z-index: 10;
+  line-height: 1;
+}
+
+.watermark-label.top {
+  top: 1.8rem;
+}
+
+.watermark-label.bottom {
+  bottom: 1.8rem;
+}
+
+/* The Continuous Horizontal Axis Line Bleeding Beyond Scroll Edges */
+.timeline-axis-line {
+  position: absolute;
+  top: 50%;
+  left: -400px;
+  right: -400px;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.08);
+  transform: translateY(-50%);
+  z-index: 1;
+}
+
+/* Year Section Markers on Axis */
+.year-marker-tick {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+}
+
+.year-marker-tick::before {
+  content: '';
+  width: 1.5px;
+  height: 20px;
+  background: rgba(255, 255, 255, 0.18);
+  margin-bottom: 6px;
+}
+
+.year-marker-label {
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  letter-spacing: 0.06em;
+}
+
+/* Staggered Timeline Node Item */
+.timeline-node-item {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Connection Dot */
+.node-dot {
+  position: relative;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #0d111a;
+  border: 1.5px solid rgba(148, 163, 184, 0.45);
+  transition: all var(--transition-fast);
+  cursor: pointer;
+  z-index: 5;
+}
+
+.timeline-node-item[data-brand="intel"] .node-dot {
+  border-color: rgba(125, 211, 252, 0.55);
+  background: rgba(13, 17, 26, 0.95);
+}
+
+.timeline-node-item[data-brand="amd"] .node-dot {
+  border-color: rgba(253, 164, 175, 0.55);
+  background: rgba(13, 17, 26, 0.95);
+}
+
+.timeline-node-item:hover .node-dot {
+  transform: scale(1.5);
+}
+
+.timeline-node-item[data-brand="intel"]:hover .node-dot {
+  background: var(--intel-color);
+  border-color: var(--intel-color);
+  box-shadow: 0 0 6px var(--intel-glow);
+}
+
+.timeline-node-item[data-brand="amd"]:hover .node-dot {
+  background: var(--amd-color);
+  border-color: var(--amd-color);
+  box-shadow: 0 0 6px var(--amd-glow);
+}
+
+/* Stem Line Gradient per Brand (Straight Vertical Lines) */
+.stem-line {
+  position: absolute;
+  left: 50%;
+  width: 1.5px;
+  transform: translateX(-50%);
+  z-index: 2;
+  transition: background var(--transition-fast);
+}
+
+.timeline-node-item[data-brand="intel"].position-top-high .stem-line,
+.timeline-node-item[data-brand="intel"].position-top-mid .stem-line,
+.timeline-node-item[data-brand="intel"].position-top-low .stem-line {
+  background: linear-gradient(to top, rgba(125, 211, 252, 0.45), rgba(125, 211, 252, 0.03));
+}
+
+.timeline-node-item[data-brand="intel"].position-bottom-high .stem-line,
+.timeline-node-item[data-brand="intel"].position-bottom-mid .stem-line,
+.timeline-node-item[data-brand="intel"].position-bottom-low .stem-line {
+  background: linear-gradient(to bottom, rgba(125, 211, 252, 0.45), rgba(125, 211, 252, 0.03));
+}
+
+.timeline-node-item[data-brand="amd"].position-top-high .stem-line,
+.timeline-node-item[data-brand="amd"].position-top-mid .stem-line,
+.timeline-node-item[data-brand="amd"].position-top-low .stem-line {
+  background: linear-gradient(to top, rgba(253, 164, 175, 0.45), rgba(253, 164, 175, 0.03));
+}
+
+.timeline-node-item[data-brand="amd"].position-bottom-high .stem-line,
+.timeline-node-item[data-brand="amd"].position-bottom-mid .stem-line,
+.timeline-node-item[data-brand="amd"].position-bottom-low .stem-line {
+  background: linear-gradient(to bottom, rgba(253, 164, 175, 0.45), rgba(253, 164, 175, 0.03));
+}
+
+/* 6 Distinct Vertical Stagger Levels for Straight Stems */
+
+/* Level 1: Top High */
+.timeline-node-item.position-top-high .stem-line {
+  bottom: 3.5px;
+  height: 320px;
+}
+.timeline-node-item.position-top-high .node-card {
+  bottom: 324px;
+}
+
+/* Level 2: Top Mid */
+.timeline-node-item.position-top-mid .stem-line {
+  bottom: 3.5px;
+  height: 210px;
+}
+.timeline-node-item.position-top-mid .node-card {
+  bottom: 214px;
+}
+
+/* Level 3: Top Low */
+.timeline-node-item.position-top-low .stem-line {
+  bottom: 3.5px;
+  height: 100px;
+}
+.timeline-node-item.position-top-low .node-card {
+  bottom: 104px;
+}
+
+/* Level 4: Bottom Low */
+.timeline-node-item.position-bottom-low .stem-line {
+  top: 3.5px;
+  height: 100px;
+}
+.timeline-node-item.position-bottom-low .node-card {
+  top: 104px;
+}
+
+/* Level 5: Bottom Mid */
+.timeline-node-item.position-bottom-mid .stem-line {
+  top: 3.5px;
+  height: 210px;
+}
+.timeline-node-item.position-bottom-mid .node-card {
+  top: 214px;
+}
+
+/* Level 6: Bottom High */
+.timeline-node-item.position-bottom-high .stem-line {
+  top: 3.5px;
+  height: 320px;
+}
+.timeline-node-item.position-bottom-high .node-card {
+  top: 324px;
+}
+
+.timeline-node-item[data-brand="intel"]:hover .stem-line {
+  background: var(--intel-color);
+}
+
+.timeline-node-item[data-brand="amd"]:hover .stem-line {
+  background: var(--amd-color);
+}
+
+/* Compact Card Content Floating at end of Stem Line */
+.node-card {
+  position: absolute;
+  transform: translateX(-50%);
+  width: 260px;
+  padding: 0.6rem 0.8rem;
+  background: rgba(13, 17, 26, 0.92);
+  border-radius: 14px;
+  backdrop-filter: blur(12px);
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  z-index: 4;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.timeline-node-item[data-type="cpu"] .node-card {
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45), 0 0 15px rgba(56, 189, 248, 0.08);
+}
+
+.timeline-node-item[data-type="igpu"] .node-card {
+  border: 1px solid rgba(251, 113, 133, 0.45);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45), 0 0 15px rgba(251, 113, 133, 0.08);
+}
+
+.node-title-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  width: 100%;
+  gap: 0.5rem;
+  margin-bottom: 0.2rem;
+}
+
+.card-date-tag {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  font-weight: 500;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.timeline-node-item:hover .node-card {
+  transform: translateX(-50%);
+}
+
+.timeline-node-item[data-brand="intel"]:hover .node-card {
+  border-color: var(--intel-color);
+}
+
+.timeline-node-item[data-brand="amd"]:hover .node-card {
+  border-color: var(--amd-color);
+}
+
+.node-highlights {
+  margin-top: 0.4rem;
+  padding-top: 0.4rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  width: 100%;
+}
+
+.node-subtitle {
+  font-size: 0.70rem;
+  color: var(--text-secondary);
+  font-weight: 400;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.node-hl-item {
+  font-size: 0.71rem;
+  color: var(--text-secondary);
+  line-height: 1.35;
+  margin-bottom: 0.25rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.35rem;
+}
+
+.node-hl-bullet {
+  color: var(--text-muted);
+  font-size: 0.65rem;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+/* Compact Card Content Typography */
+.node-date {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  margin-bottom: 0.2rem;
+}
+
+.node-title {
+  font-family: var(--font-main);
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.2;
+  margin-bottom: 0.2rem;
+  transition: color var(--transition-fast);
+}
+
+/* Brand Color Alignment (Intel Soft Ice Blue, AMD Soft Rose/Red) */
+.timeline-node-item[data-brand="intel"] .node-title {
+  color: var(--intel-color);
+}
+
+.timeline-node-item[data-brand="amd"] .node-title {
+  color: var(--amd-color);
+}
+
+.timeline-node-item[data-brand="intel"] .node-card {
+  border-color: rgba(125, 211, 252, 0.35);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), inset 0 0 12px rgba(125, 211, 252, 0.04);
+}
+
+.timeline-node-item[data-brand="amd"] .node-card {
+  border-color: rgba(253, 164, 175, 0.35);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), inset 0 0 12px rgba(253, 164, 175, 0.04);
+}
+
+.timeline-node-item[data-brand="intel"]:hover .node-card {
+  border-color: var(--intel-color);
+  box-shadow: 0 10px 30px rgba(125, 211, 252, 0.2);
+}
+
+.timeline-node-item[data-brand="amd"]:hover .node-card {
+  border-color: var(--amd-color);
+  box-shadow: 0 10px 30px rgba(253, 164, 175, 0.2);
+}
+
+.timeline-node-item[data-brand="intel"] .node-hl-bullet {
+  color: var(--intel-color);
+}
+
+.timeline-node-item[data-brand="amd"] .node-hl-bullet {
+  color: var(--amd-color);
+}
+
+/* Footer Legend */
+.footer-legend {
+  text-align: center;
+  padding: 1.8rem 1rem;
+  border-top: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 400;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2rem;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.legend-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.legend-dot.intel {
+  background: var(--intel-color);
+  opacity: 0.5;
+}
+
+.legend-dot.amd {
+  background: var(--amd-color);
+  opacity: 0.5;
+}
