@@ -1168,7 +1168,8 @@
         const sampleRow = lastQueryResult[0];
         const pkCol = Object.keys(sampleRow).find(c => ['id', 'name', 'cpu'].includes(c)) || Object.keys(sampleRow)[0];
         const pkVals = Array.from(selectedRowIndexes).map(rIdx => lastQueryResult[rIdx][pkCol]);
-        const sqlDelete = `DELETE FROM ${currentActiveTable} WHERE ${pkCol} IN (${pkVals.map(v => `'${String(v).replace(/'/g, "''")}'`).join(', ')});`;
+        const formattedVals = pkVals.map(v => (typeof v === 'number' || !isNaN(v)) ? v : `'${String(v).replace(/'/g, "''")}'`).join(', ');
+        const sqlDelete = `DELETE FROM ${currentActiveTable} WHERE ${pkCol} IN (${formattedVals});`;
 
         document.getElementById('modal-table-name').textContent = currentActiveTable;
         document.getElementById('modal-pk-desc').textContent = sqlDelete;
