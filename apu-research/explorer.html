@@ -345,9 +345,9 @@
       user-select: none;
     }
 
-    /* DETACHED TABLE LAYOUT WITH NO MIN-WIDTH CONSTRAINT ON THE TABLE */
+    /* MIN-WIDTH 100% ENSURES THE TABLE FILLS THE FULL WRAPPER; LAST COLUMN FILLS REMAINING SPACE */
     .data-table {
-      width: max-content;
+      min-width: 100%;
       border-collapse: collapse;
       font-size: 0.84rem;
       text-align: left;
@@ -741,7 +741,7 @@
       });
     });
 
-    /* --- DYNAMIC CSS INJECTION FOR HARD 10PX MINIMUM COLUMN WIDTH ENFORCEMENT --- */
+    /* --- DYNAMIC CSS INJECTION FOR HARD 10PX MINIMUM COLUMN WIDTH & LAST COLUMN STRETCH --- */
     function loadSavedColumnWidths(tableName) {
       try {
         const saved = localStorage.getItem(`pglite_explorer_col_widths_${tableName}`);
@@ -769,16 +769,30 @@
       }
 
       let css = '';
-      columns.forEach(colKey => {
+      columns.forEach((colKey, index) => {
         const w = savedWidths[colKey] !== undefined ? savedWidths[colKey] : 180;
-        css += `
-          .data-table th[data-col-key="${colKey}"],
-          .data-table td[data-col-key="${colKey}"] {
-            width: ${w}px !important;
-            min-width: ${w}px !important;
-            max-width: ${w}px !important;
-          }
-        `;
+        const isLast = index === columns.length - 1;
+
+        if (isLast) {
+          // LAST COLUMN FILLS REMAINING SPACE WITHOUT GAPS
+          css += `
+            .data-table th[data-col-key="${colKey}"],
+            .data-table td[data-col-key="${colKey}"] {
+              min-width: ${w}px !important;
+              width: auto !important;
+            }
+          `;
+        } else {
+          // COLUMNS 1 TO N-1 ARE RIGIDLY LOCKED TO THEIR TARGET PIXEL WIDTH
+          css += `
+            .data-table th[data-col-key="${colKey}"],
+            .data-table td[data-col-key="${colKey}"] {
+              width: ${w}px !important;
+              min-width: ${w}px !important;
+              max-width: ${w}px !important;
+            }
+          `;
+        }
       });
       styleEl.textContent = css;
     }
