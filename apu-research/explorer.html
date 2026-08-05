@@ -19,6 +19,7 @@
       }
     }
   </script>
+  <style id="dynamic-col-styles"></style>
   <style>
     :root {
       --sidebar-width: 280px;
@@ -353,13 +354,6 @@
       table-layout: fixed;
     }
 
-    /* STRICT 10PX MIN-WIDTH CAPABILITY FOR CELLS */
-    .data-table th,
-    .data-table td {
-      min-width: 0 !important;
-      box-sizing: border-box;
-    }
-
     /* STRICT TRUNCATION & BOUNDS FOR HEADER CELLS & SPANS */
     .data-table th {
       position: sticky;
@@ -380,6 +374,7 @@
       cursor: pointer;
       transition: background 0.15s ease;
       position: relative;
+      box-sizing: border-box;
     }
 
     .data-table th span {
@@ -427,6 +422,7 @@
       overflow: hidden;
       text-overflow: clip;
       cursor: pointer;
+      box-sizing: border-box;
     }
 
     .data-table tr.row-selected td {
@@ -695,6 +691,7 @@
     let lastQueryResult = [];
     let currentActiveTable = 'cpu_specs';
     let hiddenCols = new Set();
+    let currentColumns = [];
 
     // Selection State (Mutually Exclusive: either Row Selection or Column Selection)
     let selectedRowIndexes = new Set();
@@ -744,7 +741,7 @@
       });
     });
 
-    /* --- PERSISTENT INDEPENDENT COLUMN RESIZING LOGIC --- */
+    /* --- DYNAMIC CSS INJECTION FOR HARD 10PX MINIMUM COLUMN WIDTH ENFORCEMENT --- */
     function loadSavedColumnWidths(tableName) {
       try {
         const saved = localStorage.getItem(`pglite_explorer_col_widths_${tableName}`);
@@ -762,23 +759,45 @@
       } catch (e) {}
     }
 
+    function applyDynamicColumnStyles(tableName, columns) {
+      const savedWidths = loadSavedColumnWidths(tableName);
+      let styleEl = document.getElementById('dynamic-col-styles');
+      if (!styleEl) {
+        styleEl = document.createElement('style');
+        styleEl.id = 'dynamic-col-styles';
+        document.head.appendChild(styleEl);
+      }
+
+      let css = '';
+      columns.forEach(colKey => {
+        const w = savedWidths[colKey] !== undefined ? savedWidths[colKey] : 180;
+        css += `
+          .data-table th[data-col-key="${colKey}"],
+          .data-table td[data-col-key="${colKey}"] {
+            width: ${w}px !important;
+            min-width: ${w}px !important;
+            max-width: ${w}px !important;
+          }
+        `;
+      });
+      styleEl.textContent = css;
+    }
+
     window.resetCurrentTableWidths = function() {
       try {
         localStorage.removeItem(`pglite_explorer_col_widths_${currentActiveTable}`);
+        if (currentColumns && currentColumns.length > 0) {
+          applyDynamicColumnStyles(currentActiveTable, currentColumns);
+        }
         renderTableGrid();
       } catch(e) {}
     };
 
     function setupColumnResizers(columns) {
-      const savedWidths = loadSavedColumnWidths(currentActiveTable);
+      applyDynamicColumnStyles(currentActiveTable, columns);
 
       document.querySelectorAll('.data-table th[data-col-key]').forEach(th => {
         const cKey = th.getAttribute('data-col-key');
-        const targetW = savedWidths[cKey] !== undefined ? savedWidths[cKey] : 180;
-        
-        th.style.width = `${targetW}px`;
-        th.style.minWidth = `${targetW}px`;
-        th.style.maxWidth = `${targetW}px`;
 
         let resizer = th.querySelector('.col-resizer');
         if (!resizer) {
@@ -797,18 +816,14 @@
 
           function onMouseMove(moveEvent) {
             const newWidth = Math.max(10, startWidth + (moveEvent.clientX - startX));
-            th.style.width = `${newWidth}px`;
-            th.style.minWidth = `${newWidth}px`;
-            th.style.maxWidth = `${newWidth}px`;
+            saveColumnWidth(currentActiveTable, cKey, newWidth);
+            applyDynamicColumnStyles(currentActiveTable, columns);
           }
 
           function onMouseUp(upEvent) {
             document.removeEventListener('mousemove', onMouseMove);
             document.removeEventListener('mouseup', onMouseUp);
             resizer.classList.remove('resizing');
-            
-            const finalWidth = th.offsetWidth;
-            saveColumnWidth(currentActiveTable, cKey, finalWidth);
           }
 
           document.addEventListener('mousemove', onMouseMove);
@@ -1016,6 +1031,7 @@
       if (!lastQueryResult || lastQueryResult.length === 0) return;
       const wrapper = document.getElementById('table-wrapper');
       const columns = Object.keys(lastQueryResult[0]).filter(c => !hiddenCols.has(c));
+      currentColumns = columns;
 
       let html = `<table class="data-table"><thead><tr>`;
       columns.forEach(c => {
