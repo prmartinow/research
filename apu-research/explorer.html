@@ -599,6 +599,14 @@
             <span>igpu_specs (12 cols)</span>
             <span class="table-row-count" id="count-igpu-specs">...</span>
           </li>
+          <li class="table-item" onclick="loadTable('cpu_series')">
+            <span>cpu_series</span>
+            <span class="table-row-count" id="count-cpu-series">...</span>
+          </li>
+          <li class="table-item" onclick="loadTable('igpu_series')">
+            <span>igpu_series</span>
+            <span class="table-row-count" id="count-igpu-series">...</span>
+          </li>
           <li class="table-item" onclick="loadTable('cpu_models')">
             <span>cpu_models</span>
             <span class="table-row-count" id="count-cpu-models">...</span>
@@ -988,11 +996,17 @@
         const c2 = await db.query('SELECT COUNT(*) as count FROM igpu_specs');
         document.getElementById('count-igpu-specs').textContent = `${c2.rows[0].count} rows`;
 
-        const c3 = await db.query('SELECT COUNT(*) as count FROM cpu_models');
-        document.getElementById('count-cpu-models').textContent = `${c3.rows[0].count} rows`;
+        const c3 = await db.query('SELECT COUNT(*) as count FROM cpu_series');
+        document.getElementById('count-cpu-series').textContent = `${c3.rows[0].count} rows`;
 
-        const c4 = await db.query('SELECT COUNT(*) as count FROM releases');
-        document.getElementById('count-releases').textContent = `${c4.rows[0].count} rows`;
+        const c4 = await db.query('SELECT COUNT(*) as count FROM igpu_series');
+        document.getElementById('count-igpu-series').textContent = `${c4.rows[0].count} rows`;
+
+        const c5 = await db.query('SELECT COUNT(*) as count FROM cpu_models');
+        document.getElementById('count-cpu-models').textContent = `${c5.rows[0].count} rows`;
+
+        const c6 = await db.query('SELECT COUNT(*) as count FROM releases');
+        document.getElementById('count-releases').textContent = `${c6.rows[0].count} rows`;
       } catch(e) {}
     }
 

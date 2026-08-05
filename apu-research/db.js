@@ -88,6 +88,16 @@ export async function initDatabase() {
       graphics_frequency TEXT,
       supported_technologies TEXT
     );
+
+    CREATE TABLE IF NOT EXISTS cpu_series (
+      id SERIAL PRIMARY KEY,
+      series TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS igpu_series (
+      id SERIAL PRIMARY KEY,
+      graphics_model TEXT NOT NULL
+    );
   `);
 
   // Check if cpu_models table is populated
@@ -109,6 +119,33 @@ export async function initDatabase() {
   if (parseInt(igpuCountRes.rows[0].count, 10) === 0) {
     console.log('Seeding PGlite database with 1-to-1 AMD iGPU Specs (12 columns)...');
     await seedIgpuSpecs();
+  }
+
+  // Check if cpu_series table is populated
+  const cpuSeriesRes = await db.query('SELECT COUNT(*) as count FROM cpu_series');
+  if (parseInt(cpuSeriesRes.rows[0].count, 10) === 0) {
+    console.log('Seeding PGlite database with CPU Series from Excel...');
+    await db.query(`
+      INSERT INTO cpu_series (series) VALUES
+      ('Ryzen AI PRO 400 Series'),
+      ('Ryzen AI 400 Series'),
+      ('Ryzen PRO 8000 Series'),
+      ('Ryzen 8000 Series');
+    `);
+  }
+
+  // Check if igpu_series table is populated
+  const igpuSeriesRes = await db.query('SELECT COUNT(*) as count FROM igpu_series');
+  if (parseInt(igpuSeriesRes.rows[0].count, 10) === 0) {
+    console.log('Seeding PGlite database with iGPU Series from Excel...');
+    await db.query(`
+      INSERT INTO igpu_series (graphics_model) VALUES
+      ('AMD Radeon 860M'),
+      ('AMD Radeon 840M'),
+      ('AMD Radeon 780M'),
+      ('AMD Radeon 760M'),
+      ('AMD Radeon 740M');
+    `);
   }
 }
 
