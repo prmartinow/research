@@ -743,6 +743,28 @@
       });
     });
 
+    /* --- PERSISTENT UNDO & REDO STACK MANAGERS --- */
+    function loadHistoryStacks(tableName) {
+      try {
+        const h = localStorage.getItem(`pglite_explorer_history_${tableName}`);
+        const r = localStorage.getItem(`pglite_explorer_redo_${tableName}`);
+        historyStack = h ? JSON.parse(h) : [];
+        redoStack = r ? JSON.parse(r) : [];
+      } catch (e) {
+        historyStack = [];
+        redoStack = [];
+      }
+      updateHistoryButtonsUI();
+    }
+
+    function saveHistoryStacks(tableName) {
+      try {
+        localStorage.setItem(`pglite_explorer_history_${tableName}`, JSON.stringify(historyStack));
+        localStorage.setItem(`pglite_explorer_redo_${tableName}`, JSON.stringify(redoStack));
+      } catch (e) {}
+      updateHistoryButtonsUI();
+    }
+
     /* --- DROPPED / DELETED COLUMNS PERSISTENCE --- */
     function getDroppedColumns(tableName) {
       try {
@@ -874,7 +896,7 @@
           droppedCols: Array.from(droppedSet)
         });
         redoStack = [];
-        updateHistoryButtonsUI();
+        saveHistoryStacks(currentActiveTable);
       } catch(e) {
         console.error('pushSnapshotToHistory error:', e);
       }
@@ -900,7 +922,7 @@
 
       const prevSnapshot = historyStack.pop();
       await restoreTableSnapshot(prevSnapshot);
-      updateHistoryButtonsUI();
+      saveHistoryStacks(currentActiveTable);
     };
 
     window.handleRedo = async function() {
@@ -916,7 +938,7 @@
 
       const nextSnapshot = redoStack.pop();
       await restoreTableSnapshot(nextSnapshot);
-      updateHistoryButtonsUI();
+      saveHistoryStacks(currentActiveTable);
     };
 
     async function restoreTableSnapshot(snapshot) {
@@ -967,9 +989,11 @@
       currentActiveTable = tableName;
       localStorage.setItem('pglite_explorer_active_table', tableName);
 
+      loadHistoryStacks(tableName);
       hiddenCols.clear();
       hiddenRowIndexes.clear();
       clearSelections();
+
       document.querySelectorAll('.table-item').forEach(el => el.classList.remove('active'));
       const activeEl = Array.from(document.querySelectorAll('.table-item')).find(el => el.textContent.includes(tableName));
       if (activeEl) activeEl.classList.add('active');
@@ -1236,7 +1260,7 @@
         }
 
         clearSelections();
-        updateHistoryButtonsUI();
+        saveHistoryStacks(currentActiveTable);
         await updateSidebarCounts();
         
         const refreshSql = `SELECT * FROM ${currentActiveTable} ORDER BY id ASC LIMIT 100;`;
