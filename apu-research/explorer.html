@@ -823,7 +823,7 @@
           resizer.classList.add('resizing');
 
           function onMouseMove(moveEvent) {
-            const newWidth = Math.max(70, startWidth + (moveEvent.clientX - startX));
+            const newWidth = Math.max(10, startWidth + (moveEvent.clientX - startX));
             th.style.width = `${newWidth}px`;
           }
 
