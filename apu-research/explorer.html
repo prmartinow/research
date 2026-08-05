@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>PGlite Database Explorer & Management Studio</title>
-  <meta name="description" content="Web-based PostgreSQL Database Explorer for PGlite WASM engine with 1-to-1 AMD iGPU specs data, multi-select rows/columns, batch actions, and SQL studio.">
+  <meta name="description" content="Web-based PostgreSQL Database Explorer for PGlite WASM engine with 1-to-1 AMD iGPU specs data, multi-select rows/columns, undo/redo, and batch actions.">
   
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -226,7 +226,7 @@
 
     .sql-textarea {
       width: 100%;
-      height: 80px;
+      height: 75px;
       background: rgba(5, 8, 15, 0.9);
       border: 1px solid rgba(255, 255, 255, 0.1);
       border-radius: 12px;
@@ -268,6 +268,12 @@
       backdrop-filter: blur(10px);
     }
 
+    .toolbar-left-group {
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+    }
+
     .selection-badge {
       display: inline-flex;
       align-items: center;
@@ -279,6 +285,40 @@
       border: 1px solid rgba(125, 211, 252, 0.2);
       padding: 0.35rem 0.8rem;
       border-radius: 8px;
+    }
+
+    .history-group {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .history-btn {
+      padding: 0.35rem 0.75rem;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      color: var(--text-primary);
+      font-family: var(--font-main);
+      font-weight: 600;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+    }
+
+    .history-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      border-color: transparent;
+    }
+
+    .history-btn:not(:disabled):hover {
+      background: rgba(125, 211, 252, 0.12);
+      border-color: rgba(125, 211, 252, 0.3);
+      color: var(--intel-color);
     }
 
     .batch-actions-group {
@@ -358,7 +398,7 @@
     .data-table th.col-selected {
       background: rgba(125, 211, 252, 0.25) !important;
       color: #ffffff !important;
-      box-shadow: inset 0 -2px 0 var(--intel-color);
+      box-shadow: inset 0 -3px 0 var(--intel-color);
     }
 
     .data-table td {
@@ -393,11 +433,6 @@
 
     .data-table tr:hover td {
       background: rgba(255, 255, 255, 0.03);
-    }
-
-    .row-select-checkbox {
-      cursor: pointer;
-      accent-color: #38bdf8;
     }
 
     .success-msg {
@@ -597,13 +632,25 @@
       <section class="results-section">
         <!-- BATCH ACTIONS TOOLBAR ABOVE TABLE -->
         <div class="actions-toolbar">
-          <div class="selection-badge">
-            <span>Selection:</span>
-            <strong id="selected-summary">0 Rows, 0 Columns</strong>
+          <div class="toolbar-left-group">
+            <div class="selection-badge">
+              <span>Selection:</span>
+              <strong id="selected-summary">0 Rows, 0 Columns</strong>
+            </div>
+
+            <!-- UNDO / REDO CONTROLS -->
+            <div class="history-group">
+              <button id="undo-btn" class="history-btn" disabled onclick="handleUndo()" title="Undo (Ctrl+Z / Cmd+Z)">
+                <span>↩️</span> Undo
+              </button>
+              <button id="redo-btn" class="history-btn" disabled onclick="handleRedo()" title="Redo (Ctrl+Y / Cmd+Shift+Z)">
+                <span>↪️</span> Redo
+              </button>
+            </div>
           </div>
 
           <div class="batch-actions-group">
-            <button class="action-btn danger-btn" onclick="promptDeleteSelectedRows()">🗑️ Delete Selected Rows</button>
+            <button class="action-btn danger-btn" onclick="promptDeleteSelected()">🗑️ Delete Selected</button>
             <button class="action-btn" onclick="hideSelectedColumns()">❌ Hide Selected Cols</button>
             <button class="action-btn" onclick="copySelectedCSV()">📋 Copy CSV</button>
             <button id="export-json-btn" class="action-btn" onclick="exportJSON()">⬇️ Export JSON</button>
@@ -621,10 +668,10 @@
   <!-- Delete Confirmation Modal -->
   <div id="delete-modal" class="modal-overlay">
     <div class="confirm-card">
-      <div class="confirm-title">Confirm Batch Row Deletion</div>
+      <div class="confirm-title">Confirm Deletion</div>
       <div class="confirm-desc">
-        Are you sure you want to delete the following <strong id="modal-delete-count">X</strong> selected rows from <strong id="modal-table-name">table</strong>?
-        <span class="confirm-code" id="modal-pk-desc">DELETE FROM ...</span>
+        Are you sure you want to delete the selected item(s) from <strong id="modal-table-name">table</strong>?
+        <span class="confirm-code" id="modal-pk-desc">SQL statement</span>
       </div>
       <div class="confirm-actions">
         <button class="btn-cancel" onclick="closeDeleteModal()">Cancel</button>
@@ -640,16 +687,45 @@
     let currentActiveTable = 'cpu_specs';
     let hiddenCols = new Set();
 
-    // Selection State
+    // Selection State (Mutually Exclusive: either Row Selection or Column Selection)
     let selectedRowIndexes = new Set();
     let selectedColKeys = new Set();
     let lastClickedRowIndex = null;
     let lastClickedColKey = null;
 
+    // Undo / Redo Stacks
+    let historyStack = [];
+    let redoStack = [];
+
     window.addEventListener('DOMContentLoaded', async () => {
       await initDatabase();
       await updateSidebarCounts();
       loadTable('cpu_specs');
+
+      // Click outside table to clear selection
+      document.addEventListener('click', (e) => {
+        const isTableClick = e.target.closest('#table-wrapper') || e.target.closest('.actions-toolbar');
+        if (!isTableClick) {
+          clearSelections();
+        }
+      });
+
+      // Keyboard Shortcuts for Run, Undo & Redo
+      document.addEventListener('keydown', (e) => {
+        const isCtrlCmd = e.ctrlKey || e.metaKey;
+
+        if (isCtrlCmd && e.key.toLowerCase() === 'z') {
+          e.preventDefault();
+          if (e.shiftKey) {
+            handleRedo();
+          } else {
+            handleUndo();
+          }
+        } else if (isCtrlCmd && e.key.toLowerCase() === 'y') {
+          e.preventDefault();
+          handleRedo();
+        }
+      });
 
       document.getElementById('sql-input').addEventListener('keydown', (e) => {
         if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
@@ -658,6 +734,80 @@
         }
       });
     });
+
+    async function pushSnapshotToHistory() {
+      if (currentActiveTable.includes('.')) return;
+      try {
+        const currentDataRes = await db.query(`SELECT * FROM ${currentActiveTable} ORDER BY id ASC`);
+        historyStack.push({
+          table: currentActiveTable,
+          rows: currentDataRes.rows || []
+        });
+        redoStack = [];
+        updateHistoryButtonsUI();
+      } catch(e) {}
+    }
+
+    function updateHistoryButtonsUI() {
+      const undoBtn = document.getElementById('undo-btn');
+      const redoBtn = document.getElementById('redo-btn');
+      if (undoBtn) undoBtn.disabled = historyStack.length === 0;
+      if (redoBtn) redoBtn.disabled = redoStack.length === 0;
+    }
+
+    window.handleUndo = async function() {
+      if (historyStack.length === 0) return;
+      
+      const currentRes = await db.query(`SELECT * FROM ${currentActiveTable} ORDER BY id ASC`);
+      redoStack.push({
+        table: currentActiveTable,
+        rows: currentRes.rows || []
+      });
+
+      const prevSnapshot = historyStack.pop();
+      await restoreTableSnapshot(prevSnapshot);
+      updateHistoryButtonsUI();
+    };
+
+    window.handleRedo = async function() {
+      if (redoStack.length === 0) return;
+
+      const currentRes = await db.query(`SELECT * FROM ${currentActiveTable} ORDER BY id ASC`);
+      historyStack.push({
+        table: currentActiveTable,
+        rows: currentRes.rows || []
+      });
+
+      const nextSnapshot = redoStack.pop();
+      await restoreTableSnapshot(nextSnapshot);
+      updateHistoryButtonsUI();
+    };
+
+    async function restoreTableSnapshot(snapshot) {
+      if (!snapshot || !snapshot.table) return;
+      const targetTable = snapshot.table;
+      
+      await db.query(`DELETE FROM ${targetTable}`);
+
+      if (snapshot.rows.length > 0) {
+        const sampleRow = snapshot.rows[0];
+        const cols = Object.keys(sampleRow).filter(c => c !== 'id');
+        const placeholders = cols.map((_, idx) => '$' + (idx + 1)).join(', ');
+
+        for (const row of snapshot.rows) {
+          const vals = cols.map(c => row[c] !== undefined ? row[c] : null);
+          await db.query(
+            `INSERT INTO ${targetTable} (${cols.join(', ')}) VALUES (${placeholders})`,
+            vals
+          );
+        }
+      }
+
+      await updateSidebarCounts();
+      if (currentActiveTable === targetTable) {
+        loadTable(targetTable);
+      }
+    }
 
     async function updateSidebarCounts() {
       try {
@@ -688,7 +838,7 @@
         : `SELECT * FROM ${tableName} ORDER BY id ASC LIMIT 100;`;
       
       setQuery(sql);
-      executeQuery();
+      executeQuery(false);
     };
 
     window.setQuery = function(sql) {
@@ -712,13 +862,10 @@
       document.getElementById('selected-summary').textContent = `${selectedRowIndexes.size} Rows, ${selectedColKeys.size} Cols`;
       
       document.querySelectorAll('.data-table tbody tr').forEach((tr, rIdx) => {
-        const checkbox = tr.querySelector('.row-select-checkbox');
         if (selectedRowIndexes.has(rIdx)) {
           tr.classList.add('row-selected');
-          if (checkbox) checkbox.checked = true;
         } else {
           tr.classList.remove('row-selected');
-          if (checkbox) checkbox.checked = false;
         }
       });
 
@@ -741,7 +888,7 @@
       });
     };
 
-    window.executeQuery = async function() {
+    window.executeQuery = async function(isUserCommand = true) {
       const sql = document.getElementById('sql-input').value.trim();
       if (!sql) return;
 
@@ -749,14 +896,17 @@
       const summary = document.getElementById('selected-summary');
       clearSelections();
 
+      const isMutation = /^(DELETE|INSERT|UPDATE|DROP|CREATE|TRUNCATE)/i.test(sql);
+      if (isMutation && isUserCommand) {
+        await pushSnapshotToHistory();
+      }
+
       const t0 = performance.now();
       try {
         const res = await db.query(sql);
         const elapsed = (performance.now() - t0).toFixed(2);
         
         await updateSidebarCounts();
-
-        const isMutation = /^(DELETE|INSERT|UPDATE|DROP|CREATE|TRUNCATE)/i.test(sql);
 
         if (isMutation) {
           summary.textContent = `0 Rows (Mutation Executed)`;
@@ -785,8 +935,6 @@
       const columns = Object.keys(lastQueryResult[0]).filter(c => !hiddenCols.has(c));
 
       let html = `<table class="data-table"><thead><tr>`;
-      html += `<th style="width: 40px; text-align: center;"><input type="checkbox" id="select-all-rows-checkbox"></th>`;
-      
       columns.forEach(c => {
         html += `<th data-col-key="${c}">${c}</th>`;
       });
@@ -794,8 +942,6 @@
 
       lastQueryResult.forEach((row, rIdx) => {
         html += `<tr data-row-index="${rIdx}">`;
-        html += `<td style="text-align: center;"><input type="checkbox" class="row-select-checkbox" data-row-index="${rIdx}"></td>`;
-        
         columns.forEach(c => {
           let val = row[c];
           if (typeof val === 'object' && val !== null) val = JSON.stringify(val);
@@ -812,9 +958,14 @@
     }
 
     function setupGridInteractions(columns) {
-      // Row Click with Shift & Cmd/Ctrl Support
+      // Row Click with Shift & Cmd/Ctrl Support (Mutually Exclusive: clears column selections)
       document.querySelectorAll('.data-table tbody tr').forEach(tr => {
         tr.addEventListener('click', (e) => {
+          e.stopPropagation();
+          // Clear Column Selections
+          selectedColKeys.clear();
+          lastClickedColKey = null;
+
           const rIdx = parseInt(tr.getAttribute('data-row-index'), 10);
 
           if (e.shiftKey && lastClickedRowIndex !== null) {
@@ -842,10 +993,14 @@
         });
       });
 
-      // Header Column Click with Shift & Cmd/Ctrl Support
+      // Header Column Click with Shift & Cmd/Ctrl Support (Mutually Exclusive: clears row selections)
       document.querySelectorAll('.data-table th[data-col-key]').forEach(th => {
         th.addEventListener('click', (e) => {
           e.stopPropagation();
+          // Clear Row Selections
+          selectedRowIndexes.clear();
+          lastClickedRowIndex = null;
+
           const cKey = th.getAttribute('data-col-key');
           const colIndex = columns.indexOf(cKey);
 
@@ -871,35 +1026,28 @@
           updateSelectionUI();
         });
       });
-
-      // Select All Rows Checkbox Header
-      const selectAllCb = document.getElementById('select-all-rows-checkbox');
-      if (selectAllCb) {
-        selectAllCb.addEventListener('click', (e) => {
-          e.stopPropagation();
-          if (selectAllCb.checked) {
-            lastQueryResult.forEach((_, idx) => selectedRowIndexes.add(idx));
-          } else {
-            selectedRowIndexes.clear();
-          }
-          updateSelectionUI();
-        });
-      }
     }
 
-    window.promptDeleteSelectedRows = function() {
-      if (selectedRowIndexes.size === 0) {
-        alert('Please select one or more rows to delete (Click, Shift+Click, or Cmd/Ctrl+Click).');
+    window.promptDeleteSelected = function() {
+      if (selectedRowIndexes.size === 0 && selectedColKeys.size === 0) {
+        alert('Please select rows or column(s) to delete (Click, Shift+Click, or Cmd/Ctrl+Click).');
         return;
       }
 
-      const sampleRow = lastQueryResult[0];
-      const pkCol = Object.keys(sampleRow).find(c => ['id', 'name', 'cpu'].includes(c)) || Object.keys(sampleRow)[0];
-      
-      const pkVals = Array.from(selectedRowIndexes).map(rIdx => lastQueryResult[rIdx][pkCol]);
-      const sqlDelete = `DELETE FROM ${currentActiveTable} WHERE ${pkCol} IN (${pkVals.map(v => `'${String(v).replace(/'/g, "''")}'`).join(', ')});`;
+      let sqlDelete = '';
 
-      document.getElementById('modal-delete-count').textContent = selectedRowIndexes.size;
+      if (selectedRowIndexes.size > 0) {
+        const sampleRow = lastQueryResult[0];
+        const pkCol = Object.keys(sampleRow).find(c => ['id', 'name', 'cpu'].includes(c)) || Object.keys(sampleRow)[0];
+        const pkVals = Array.from(selectedRowIndexes).map(rIdx => lastQueryResult[rIdx][pkCol]);
+        sqlDelete = `DELETE FROM ${currentActiveTable} WHERE ${pkCol} IN (${pkVals.map(v => `'${String(v).replace(/'/g, "''")}'`).join(', ')});`;
+        
+        document.getElementById('modal-delete-count').textContent = `${selectedRowIndexes.size} rows`;
+      } else if (selectedColKeys.size > 0) {
+        sqlDelete = `Hiding selected column(s): ${Array.from(selectedColKeys).join(', ')}`;
+        document.getElementById('modal-delete-count').textContent = `${selectedColKeys.size} column(s)`;
+      }
+
       document.getElementById('modal-table-name').textContent = currentActiveTable;
       document.getElementById('modal-pk-desc').textContent = sqlDelete;
 
@@ -908,11 +1056,15 @@
 
       document.getElementById('modal-confirm-btn').onclick = async () => {
         closeDeleteModal();
-        setQuery(sqlDelete);
-        await executeQuery();
-        setTimeout(() => {
-          if (!currentActiveTable.includes('.')) loadTable(currentActiveTable);
-        }, 300);
+        if (selectedRowIndexes.size > 0) {
+          setQuery(sqlDelete);
+          await executeQuery(true);
+          setTimeout(() => {
+            if (!currentActiveTable.includes('.')) loadTable(currentActiveTable);
+          }, 300);
+        } else if (selectedColKeys.size > 0) {
+          hideSelectedColumns();
+        }
       };
     };
 
@@ -922,7 +1074,7 @@
 
     window.hideSelectedColumns = function() {
       if (selectedColKeys.size === 0) {
-        alert('Please click one or more column headers (or Shift/Cmd+Click) to select columns to hide.');
+        alert('Please click column header(s) to select columns to hide.');
         return;
       }
       selectedColKeys.forEach(c => hiddenCols.add(c));
