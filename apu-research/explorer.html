@@ -1,0 +1,971 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PGlite Database Explorer & Management Studio</title>
+  <meta name="description" content="Web-based PostgreSQL Database Explorer for PGlite WASM engine with 1-to-1 AMD iGPU specs data, multi-select rows/columns, batch actions, and SQL studio.">
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@400;500;600;700;800&display=optional">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@400;500;600;700;800&display=optional" rel="stylesheet">
+  
+  <link rel="stylesheet" href="styles.css">
+  <script type="importmap">
+    {
+      "imports": {
+        "@electric-sql/pglite": "https://cdn.jsdelivr.net/npm/@electric-sql/pglite/dist/index.js"
+      }
+    }
+  </script>
+  <style>
+    :root {
+      --sidebar-width: 310px;
+    }
+
+    body {
+      font-family: var(--font-main);
+      background-color: var(--bg-dark);
+      color: var(--text-primary);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+      margin: 0;
+    }
+
+    .explorer-layout {
+      display: flex;
+      flex: 1;
+      height: calc(100vh - 64px);
+      width: 100%;
+    }
+
+    /* Sidebar */
+    .explorer-sidebar {
+      width: var(--sidebar-width);
+      background: rgba(13, 17, 26, 0.95);
+      border-right: 1px solid var(--border-subtle);
+      display: flex;
+      flex-direction: column;
+      padding: 1.2rem;
+      gap: 1.4rem;
+      overflow-y: auto;
+    }
+
+    .db-badge {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.6rem 0.9rem;
+      background: rgba(125, 211, 252, 0.08);
+      border: 1px solid rgba(125, 211, 252, 0.2);
+      border-radius: 12px;
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      color: var(--intel-color);
+    }
+
+    .db-status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #4ade80;
+      box-shadow: 0 0 10px #4ade80;
+    }
+
+    .sidebar-section-title {
+      font-family: var(--font-main);
+      font-weight: 700;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      margin-bottom: 0.6rem;
+    }
+
+    .table-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+
+    .table-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.6rem 0.85rem;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid transparent;
+      cursor: pointer;
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+      color: var(--text-primary);
+      transition: all var(--transition-fast);
+    }
+
+    .table-item:hover, .table-item.active {
+      background: rgba(125, 211, 252, 0.12);
+      border-color: rgba(125, 211, 252, 0.3);
+      color: var(--intel-color);
+    }
+
+    .table-row-count {
+      font-size: 0.72rem;
+      font-family: var(--font-mono);
+      padding: 0.15rem 0.5rem;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text-muted);
+    }
+
+    .preset-btn {
+      width: 100%;
+      text-align: left;
+      padding: 0.55rem 0.8rem;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      font-size: 0.8rem;
+      font-family: var(--font-main);
+      font-weight: 500;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      margin-bottom: 0.45rem;
+    }
+
+    .preset-btn:hover {
+      background: rgba(255, 255, 255, 0.06);
+      color: #ffffff;
+      border-color: rgba(255, 255, 255, 0.18);
+    }
+
+    /* Main Workspace */
+    .explorer-main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-dark);
+      overflow: hidden;
+    }
+
+    /* Editor Box */
+    .editor-section {
+      padding: 1.2rem 1.8rem;
+      background: rgba(13, 17, 26, 0.75);
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      flex-direction: column;
+      gap: 0.8rem;
+    }
+
+    .editor-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .editor-title {
+      font-family: var(--font-main);
+      font-weight: 700;
+      font-size: 0.95rem;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .editor-actions {
+      display: flex;
+      gap: 0.6rem;
+    }
+
+    .run-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1.2rem;
+      background: linear-gradient(135deg, #0284c7, #2563eb);
+      color: #ffffff;
+      border: none;
+      border-radius: 10px;
+      font-family: var(--font-main);
+      font-weight: 600;
+      font-size: 0.85rem;
+      cursor: pointer;
+      box-shadow: 0 4px 14px rgba(2, 132, 199, 0.35);
+      transition: all var(--transition-fast);
+    }
+
+    .run-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 18px rgba(2, 132, 199, 0.5);
+    }
+
+    .clear-btn {
+      padding: 0.5rem 0.9rem;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      border-radius: 10px;
+      font-family: var(--font-main);
+      font-size: 0.82rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+
+    .clear-btn:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: #ffffff;
+    }
+
+    .sql-textarea {
+      width: 100%;
+      height: 80px;
+      background: rgba(5, 8, 15, 0.9);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 0.9rem 1.1rem;
+      color: #e2e8f0;
+      font-family: var(--font-mono);
+      font-size: 0.88rem;
+      line-height: 1.5;
+      resize: vertical;
+      outline: none;
+    }
+
+    .sql-textarea:focus {
+      border-color: var(--intel-color);
+      box-shadow: 0 0 0 3px rgba(125, 211, 252, 0.15);
+    }
+
+    /* Results & Selection Section */
+    .results-section {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 1.2rem 1.8rem;
+      overflow: hidden;
+    }
+
+    /* BATCH ACTIONS TOOLBAR ABOVE TABLE */
+    .actions-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.8rem;
+      margin-bottom: 0.9rem;
+      padding: 0.7rem 1.2rem;
+      background: rgba(18, 24, 38, 0.85);
+      border: 1px solid var(--border-subtle);
+      border-radius: 14px;
+      backdrop-filter: blur(10px);
+    }
+
+    .selection-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+      color: var(--intel-color);
+      background: rgba(125, 211, 252, 0.08);
+      border: 1px solid rgba(125, 211, 252, 0.2);
+      padding: 0.35rem 0.8rem;
+      border-radius: 8px;
+    }
+
+    .batch-actions-group {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .action-btn {
+      padding: 0.4rem 0.9rem;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      color: var(--text-primary);
+      font-family: var(--font-main);
+      font-weight: 600;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+    }
+
+    .action-btn:hover {
+      background: rgba(255, 255, 255, 0.09);
+      color: #ffffff;
+    }
+
+    .action-btn.danger-btn {
+      background: rgba(243, 24, 64, 0.12);
+      border-color: rgba(243, 24, 64, 0.3);
+      color: var(--amd-color);
+    }
+
+    .action-btn.danger-btn:hover {
+      background: rgba(243, 24, 64, 0.25);
+      color: #ffffff;
+      box-shadow: 0 0 12px rgba(243, 24, 64, 0.3);
+    }
+
+    .table-wrapper {
+      flex: 1;
+      overflow: auto;
+      border: 1px solid var(--border-subtle);
+      border-radius: 14px;
+      background: rgba(13, 17, 26, 0.65);
+      user-select: none;
+    }
+
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.84rem;
+      text-align: left;
+    }
+
+    .data-table th {
+      position: sticky;
+      top: 0;
+      background: rgba(18, 24, 38, 0.98);
+      color: var(--intel-color);
+      font-family: var(--font-main);
+      font-weight: 700;
+      font-size: 0.82rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 0.8rem 1rem;
+      border-bottom: 1px solid var(--border-subtle);
+      white-space: nowrap;
+      z-index: 10;
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+
+    .data-table th:hover {
+      background: rgba(125, 211, 252, 0.15);
+    }
+
+    .data-table th.col-selected {
+      background: rgba(125, 211, 252, 0.25) !important;
+      color: #ffffff !important;
+      box-shadow: inset 0 -2px 0 var(--intel-color);
+    }
+
+    .data-table td {
+      padding: 0.65rem 1rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      white-space: nowrap;
+      max-width: 380px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      cursor: pointer;
+    }
+
+    .data-table tr.row-selected td {
+      background: rgba(56, 189, 248, 0.16) !important;
+      color: #ffffff !important;
+    }
+
+    .data-table tr.row-selected td:first-child {
+      border-left: 3px solid var(--intel-color);
+    }
+
+    .data-table td.col-selected-cell {
+      background: rgba(125, 211, 252, 0.06);
+    }
+
+    .data-table td.mono-cell {
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+    }
+
+    .data-table tr:hover td {
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .row-select-checkbox {
+      cursor: pointer;
+      accent-color: #38bdf8;
+    }
+
+    .success-msg {
+      padding: 0.9rem 1.2rem;
+      background: rgba(74, 222, 128, 0.1);
+      border: 1px solid rgba(74, 222, 128, 0.25);
+      border-radius: 12px;
+      color: #4ade80;
+      font-family: var(--font-main);
+      font-weight: 500;
+      font-size: 0.86rem;
+    }
+
+    .error-box {
+      padding: 1rem 1.2rem;
+      background: rgba(253, 164, 175, 0.1);
+      border: 1px solid rgba(253, 164, 175, 0.3);
+      border-radius: 12px;
+      color: var(--amd-color);
+      font-family: var(--font-mono);
+      font-size: 0.84rem;
+      line-height: 1.5;
+    }
+
+    .empty-state {
+      padding: 4rem 2rem;
+      text-align: center;
+      color: var(--text-muted);
+      font-family: var(--font-main);
+      font-size: 0.9rem;
+    }
+
+    /* Modal Confirmation Dialog for Delete */
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(7, 9, 14, 0.85);
+      backdrop-filter: blur(8px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity var(--transition-fast);
+    }
+
+    .modal-overlay.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .confirm-card {
+      background: #0f172a;
+      border: 1px solid rgba(253, 164, 175, 0.3);
+      border-radius: 20px;
+      padding: 1.8rem 2rem;
+      max-width: 480px;
+      width: 90%;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+      text-align: center;
+    }
+
+    .confirm-title {
+      font-family: var(--font-main);
+      font-weight: 700;
+      font-size: 1.1rem;
+      color: var(--amd-color);
+      margin-bottom: 0.6rem;
+    }
+
+    .confirm-desc {
+      font-size: 0.88rem;
+      color: var(--text-primary);
+      margin-bottom: 1.4rem;
+      line-height: 1.5;
+    }
+
+    .confirm-code {
+      display: block;
+      padding: 0.6rem 0.8rem;
+      background: rgba(0, 0, 0, 0.4);
+      border-radius: 8px;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: var(--intel-color);
+      margin-top: 0.4rem;
+      word-break: break-all;
+      max-height: 120px;
+      overflow-y: auto;
+    }
+
+    .confirm-actions {
+      display: flex;
+      gap: 0.8rem;
+      justify-content: center;
+    }
+
+    .btn-confirm-delete {
+      padding: 0.55rem 1.3rem;
+      background: linear-gradient(135deg, #e11d48, #be123c);
+      color: #ffffff;
+      border: none;
+      border-radius: 10px;
+      font-family: var(--font-main);
+      font-weight: 600;
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+
+    .btn-cancel {
+      padding: 0.55rem 1.1rem;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      border-radius: 10px;
+      font-family: var(--font-main);
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Minimal Header -->
+  <header class="header">
+    <div class="nav-tabs">
+      <a href="index.html" class="nav-tab-btn">Timeline</a>
+      <a href="table.html" class="nav-tab-btn">Data Table</a>
+      <a href="notes.html" class="nav-tab-btn">Release Notes</a>
+      <a href="explorer.html" class="nav-tab-btn active">Database Explorer</a>
+    </div>
+  </header>
+
+  <!-- Explorer Main Workspace -->
+  <div class="explorer-layout">
+    <!-- Sidebar -->
+    <aside class="explorer-sidebar">
+      <div class="db-badge">
+        <div class="db-status-dot"></div>
+        <span>PGlite WASM Postgres Engine</span>
+      </div>
+
+      <div>
+        <div class="sidebar-section-title">1-to-1 AMD Excel Tables</div>
+        <ul class="table-list" id="table-list">
+          <li class="table-item" onclick="loadTable('cpu_specs')">
+            <span>cpu_specs (27 cols)</span>
+            <span class="table-row-count" id="count-cpu-specs">...</span>
+          </li>
+          <li class="table-item" onclick="loadTable('igpu_specs')">
+            <span>igpu_specs (12 cols)</span>
+            <span class="table-row-count" id="count-igpu-specs">...</span>
+          </li>
+          <li class="table-item" onclick="loadTable('cpu_models')">
+            <span>cpu_models</span>
+            <span class="table-row-count" id="count-cpu-models">...</span>
+          </li>
+          <li class="table-item" onclick="loadTable('releases')">
+            <span>releases</span>
+            <span class="table-row-count" id="count-releases">...</span>
+          </li>
+          <li class="table-item" onclick="loadTable('information_schema.tables')">
+            <span>information_schema</span>
+            <span class="table-row-count">system</span>
+          </li>
+        </ul>
+      </div>
+
+      <div>
+        <div class="sidebar-section-title">SQL Query Presets</div>
+        <button class="preset-btn" onclick="setQuery('SELECT name, family, series, of_cpu_cores, of_threads, max_boost_clock, graphics_model, graphics_core_count FROM cpu_specs LIMIT 20;')">📊 1-to-1 CPU Specs View</button>
+        <button class="preset-btn" onclick="setQuery('SELECT name, graphics_model, graphics_core_count, graphics_frequency FROM igpu_specs LIMIT 20;')">🎮 1-to-1 iGPU Specs View</button>
+        <button class="preset-btn" onclick="setQuery('SELECT cpu, family, igpu, arch, clock FROM cpu_models ORDER BY clock DESC;')">⚡ Top Clocked iGPUs</button>
+        <button class="preset-btn" onclick="setQuery('SELECT column_name, data_type FROM information_schema.columns WHERE table_name = \'cpu_specs\';')">🔍 cpu_specs 27-Col Schema</button>
+      </div>
+    </aside>
+
+    <!-- Main Workspace -->
+    <main class="explorer-main">
+      <!-- Editor -->
+      <section class="editor-section">
+        <div class="editor-header">
+          <span class="editor-title">SQL Query & Operations Studio</span>
+          <div class="editor-actions">
+            <button class="clear-btn" onclick="clearQuery()">Clear</button>
+            <button class="run-btn" onclick="executeQuery()">
+              <span>Run SQL</span>
+              <kbd style="font-size: 0.72rem; opacity: 0.8; font-family: var(--font-mono);">Ctrl+Enter</kbd>
+            </button>
+          </div>
+        </div>
+        <textarea id="sql-input" class="sql-textarea" spellcheck="false" placeholder="Enter SQL query or command (SELECT, DELETE, UPDATE, INSERT)..."></textarea>
+      </section>
+
+      <!-- Results View -->
+      <section class="results-section">
+        <!-- BATCH ACTIONS TOOLBAR ABOVE TABLE -->
+        <div class="actions-toolbar">
+          <div class="selection-badge">
+            <span>Selection:</span>
+            <strong id="selected-summary">0 Rows, 0 Columns</strong>
+          </div>
+
+          <div class="batch-actions-group">
+            <button class="action-btn danger-btn" onclick="promptDeleteSelectedRows()">🗑️ Delete Selected Rows</button>
+            <button class="action-btn" onclick="hideSelectedColumns()">❌ Hide Selected Cols</button>
+            <button class="action-btn" onclick="copySelectedCSV()">📋 Copy CSV</button>
+            <button id="export-json-btn" class="action-btn" onclick="exportJSON()">⬇️ Export JSON</button>
+            <button class="action-btn" onclick="clearSelections()">🧹 Clear Selection</button>
+          </div>
+        </div>
+
+        <div class="table-wrapper" id="table-wrapper">
+          <div class="empty-state">Loading PGlite WASM Postgres database...</div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Delete Confirmation Modal -->
+  <div id="delete-modal" class="modal-overlay">
+    <div class="confirm-card">
+      <div class="confirm-title">Confirm Batch Row Deletion</div>
+      <div class="confirm-desc">
+        Are you sure you want to delete the following <strong id="modal-delete-count">X</strong> selected rows from <strong id="modal-table-name">table</strong>?
+        <span class="confirm-code" id="modal-pk-desc">DELETE FROM ...</span>
+      </div>
+      <div class="confirm-actions">
+        <button class="btn-cancel" onclick="closeDeleteModal()">Cancel</button>
+        <button id="modal-confirm-btn" class="btn-confirm-delete">Confirm Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initDatabase, db } from './db.js';
+
+    let lastQueryResult = [];
+    let currentActiveTable = 'cpu_specs';
+    let hiddenCols = new Set();
+
+    // Selection State
+    let selectedRowIndexes = new Set();
+    let selectedColKeys = new Set();
+    let lastClickedRowIndex = null;
+    let lastClickedColKey = null;
+
+    window.addEventListener('DOMContentLoaded', async () => {
+      await initDatabase();
+      await updateSidebarCounts();
+      loadTable('cpu_specs');
+
+      document.getElementById('sql-input').addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+          e.preventDefault();
+          executeQuery();
+        }
+      });
+    });
+
+    async function updateSidebarCounts() {
+      try {
+        const c1 = await db.query('SELECT COUNT(*) as count FROM cpu_specs');
+        document.getElementById('count-cpu-specs').textContent = `${c1.rows[0].count} rows`;
+
+        const c2 = await db.query('SELECT COUNT(*) as count FROM igpu_specs');
+        document.getElementById('count-igpu-specs').textContent = `${c2.rows[0].count} rows`;
+
+        const c3 = await db.query('SELECT COUNT(*) as count FROM cpu_models');
+        document.getElementById('count-cpu-models').textContent = `${c3.rows[0].count} rows`;
+
+        const c4 = await db.query('SELECT COUNT(*) as count FROM releases');
+        document.getElementById('count-releases').textContent = `${c4.rows[0].count} rows`;
+      } catch(e) {}
+    }
+
+    window.loadTable = function(tableName) {
+      currentActiveTable = tableName;
+      hiddenCols.clear();
+      clearSelections();
+      document.querySelectorAll('.table-item').forEach(el => el.classList.remove('active'));
+      const activeEl = Array.from(document.querySelectorAll('.table-item')).find(el => el.textContent.includes(tableName));
+      if (activeEl) activeEl.classList.add('active');
+
+      const sql = tableName.includes('.') 
+        ? `SELECT table_schema, table_name, table_type FROM ${tableName} WHERE table_schema = 'public';`
+        : `SELECT * FROM ${tableName} ORDER BY id ASC LIMIT 100;`;
+      
+      setQuery(sql);
+      executeQuery();
+    };
+
+    window.setQuery = function(sql) {
+      document.getElementById('sql-input').value = sql;
+    };
+
+    window.clearQuery = function() {
+      document.getElementById('sql-input').value = '';
+      document.getElementById('sql-input').focus();
+    };
+
+    window.clearSelections = function() {
+      selectedRowIndexes.clear();
+      selectedColKeys.clear();
+      lastClickedRowIndex = null;
+      lastClickedColKey = null;
+      updateSelectionUI();
+    };
+
+    window.updateSelectionUI = function() {
+      document.getElementById('selected-summary').textContent = `${selectedRowIndexes.size} Rows, ${selectedColKeys.size} Cols`;
+      
+      document.querySelectorAll('.data-table tbody tr').forEach((tr, rIdx) => {
+        const checkbox = tr.querySelector('.row-select-checkbox');
+        if (selectedRowIndexes.has(rIdx)) {
+          tr.classList.add('row-selected');
+          if (checkbox) checkbox.checked = true;
+        } else {
+          tr.classList.remove('row-selected');
+          if (checkbox) checkbox.checked = false;
+        }
+      });
+
+      document.querySelectorAll('.data-table th[data-col-key]').forEach(th => {
+        const cKey = th.getAttribute('data-col-key');
+        if (selectedColKeys.has(cKey)) {
+          th.classList.add('col-selected');
+        } else {
+          th.classList.remove('col-selected');
+        }
+      });
+
+      document.querySelectorAll('.data-table td[data-col-key]').forEach(td => {
+        const cKey = td.getAttribute('data-col-key');
+        if (selectedColKeys.has(cKey)) {
+          td.classList.add('col-selected-cell');
+        } else {
+          td.classList.remove('col-selected-cell');
+        }
+      });
+    };
+
+    window.executeQuery = async function() {
+      const sql = document.getElementById('sql-input').value.trim();
+      if (!sql) return;
+
+      const wrapper = document.getElementById('table-wrapper');
+      const summary = document.getElementById('selected-summary');
+      clearSelections();
+
+      const t0 = performance.now();
+      try {
+        const res = await db.query(sql);
+        const elapsed = (performance.now() - t0).toFixed(2);
+        
+        await updateSidebarCounts();
+
+        const isMutation = /^(DELETE|INSERT|UPDATE|DROP|CREATE|TRUNCATE)/i.test(sql);
+
+        if (isMutation) {
+          summary.textContent = `0 Rows (Mutation Executed)`;
+          wrapper.innerHTML = `<div class="success-msg">✅ Statement executed successfully in ${elapsed} ms. Database updated!</div>`;
+          return;
+        }
+
+        lastQueryResult = res.rows || [];
+        summary.textContent = `0 Rows, 0 Cols (${res.rows.length} total rows, ${elapsed} ms)`;
+
+        if (res.rows.length === 0) {
+          wrapper.innerHTML = `<div class="empty-state">Query executed successfully, but returned 0 rows.</div>`;
+          return;
+        }
+
+        renderTableGrid();
+      } catch (err) {
+        summary.textContent = `Query Error`;
+        wrapper.innerHTML = `<div class="error-box"><strong>PostgreSQL Error:</strong> ${err.message}</div>`;
+      }
+    };
+
+    function renderTableGrid() {
+      if (!lastQueryResult || lastQueryResult.length === 0) return;
+      const wrapper = document.getElementById('table-wrapper');
+      const columns = Object.keys(lastQueryResult[0]).filter(c => !hiddenCols.has(c));
+
+      let html = `<table class="data-table"><thead><tr>`;
+      html += `<th style="width: 40px; text-align: center;"><input type="checkbox" id="select-all-rows-checkbox"></th>`;
+      
+      columns.forEach(c => {
+        html += `<th data-col-key="${c}">${c}</th>`;
+      });
+      html += `</tr></thead><tbody>`;
+
+      lastQueryResult.forEach((row, rIdx) => {
+        html += `<tr data-row-index="${rIdx}">`;
+        html += `<td style="text-align: center;"><input type="checkbox" class="row-select-checkbox" data-row-index="${rIdx}"></td>`;
+        
+        columns.forEach(c => {
+          let val = row[c];
+          if (typeof val === 'object' && val !== null) val = JSON.stringify(val);
+          const isMono = ['id', 'cpu', 'name', 'year', 'quarter', 'clock', 'brand', 'date', 'arch', 'platform', 'of_cpu_cores', 'of_threads', 'graphics_core_count'].includes(c);
+          html += `<td data-col-key="${c}" class="${isMono ? 'mono-cell' : ''}" title="${String(val || '').replace(/"/g, '&quot;')}">${val !== null && val !== undefined ? val : '<span style="color: var(--text-muted);">NULL</span>'}</td>`;
+        });
+        html += `</tr>`;
+      });
+
+      html += `</tbody></table>`;
+      wrapper.innerHTML = html;
+
+      setupGridInteractions(columns);
+    }
+
+    function setupGridInteractions(columns) {
+      // Row Click with Shift & Cmd/Ctrl Support
+      document.querySelectorAll('.data-table tbody tr').forEach(tr => {
+        tr.addEventListener('click', (e) => {
+          const rIdx = parseInt(tr.getAttribute('data-row-index'), 10);
+
+          if (e.shiftKey && lastClickedRowIndex !== null) {
+            // Shift + Click Range Selection
+            const start = Math.min(lastClickedRowIndex, rIdx);
+            const end = Math.max(lastClickedRowIndex, rIdx);
+            for (let i = start; i <= end; i++) {
+              selectedRowIndexes.add(i);
+            }
+          } else if (e.metaKey || e.ctrlKey) {
+            // Cmd / Ctrl + Click Individual Toggle
+            if (selectedRowIndexes.has(rIdx)) {
+              selectedRowIndexes.delete(rIdx);
+            } else {
+              selectedRowIndexes.add(rIdx);
+            }
+            lastClickedRowIndex = rIdx;
+          } else {
+            // Single Click
+            selectedRowIndexes.clear();
+            selectedRowIndexes.add(rIdx);
+            lastClickedRowIndex = rIdx;
+          }
+          updateSelectionUI();
+        });
+      });
+
+      // Header Column Click with Shift & Cmd/Ctrl Support
+      document.querySelectorAll('.data-table th[data-col-key]').forEach(th => {
+        th.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const cKey = th.getAttribute('data-col-key');
+          const colIndex = columns.indexOf(cKey);
+
+          if (e.shiftKey && lastClickedColKey !== null) {
+            const lastIdx = columns.indexOf(lastClickedColKey);
+            const start = Math.min(lastIdx, colIndex);
+            const end = Math.max(lastIdx, colIndex);
+            for (let i = start; i <= end; i++) {
+              selectedColKeys.add(columns[i]);
+            }
+          } else if (e.metaKey || e.ctrlKey) {
+            if (selectedColKeys.has(cKey)) {
+              selectedColKeys.delete(cKey);
+            } else {
+              selectedColKeys.add(cKey);
+            }
+            lastClickedColKey = cKey;
+          } else {
+            selectedColKeys.clear();
+            selectedColKeys.add(cKey);
+            lastClickedColKey = cKey;
+          }
+          updateSelectionUI();
+        });
+      });
+
+      // Select All Rows Checkbox Header
+      const selectAllCb = document.getElementById('select-all-rows-checkbox');
+      if (selectAllCb) {
+        selectAllCb.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (selectAllCb.checked) {
+            lastQueryResult.forEach((_, idx) => selectedRowIndexes.add(idx));
+          } else {
+            selectedRowIndexes.clear();
+          }
+          updateSelectionUI();
+        });
+      }
+    }
+
+    window.promptDeleteSelectedRows = function() {
+      if (selectedRowIndexes.size === 0) {
+        alert('Please select one or more rows to delete (Click, Shift+Click, or Cmd/Ctrl+Click).');
+        return;
+      }
+
+      const sampleRow = lastQueryResult[0];
+      const pkCol = Object.keys(sampleRow).find(c => ['id', 'name', 'cpu'].includes(c)) || Object.keys(sampleRow)[0];
+      
+      const pkVals = Array.from(selectedRowIndexes).map(rIdx => lastQueryResult[rIdx][pkCol]);
+      const sqlDelete = `DELETE FROM ${currentActiveTable} WHERE ${pkCol} IN (${pkVals.map(v => `'${String(v).replace(/'/g, "''")}'`).join(', ')});`;
+
+      document.getElementById('modal-delete-count').textContent = selectedRowIndexes.size;
+      document.getElementById('modal-table-name').textContent = currentActiveTable;
+      document.getElementById('modal-pk-desc').textContent = sqlDelete;
+
+      const modal = document.getElementById('delete-modal');
+      modal.classList.add('open');
+
+      document.getElementById('modal-confirm-btn').onclick = async () => {
+        closeDeleteModal();
+        setQuery(sqlDelete);
+        await executeQuery();
+        setTimeout(() => {
+          if (!currentActiveTable.includes('.')) loadTable(currentActiveTable);
+        }, 300);
+      };
+    };
+
+    window.closeDeleteModal = function() {
+      document.getElementById('delete-modal').classList.remove('open');
+    };
+
+    window.hideSelectedColumns = function() {
+      if (selectedColKeys.size === 0) {
+        alert('Please click one or more column headers (or Shift/Cmd+Click) to select columns to hide.');
+        return;
+      }
+      selectedColKeys.forEach(c => hiddenCols.add(c));
+      selectedColKeys.clear();
+      renderTableGrid();
+      updateSelectionUI();
+    };
+
+    window.copySelectedCSV = function() {
+      if (!lastQueryResult || lastQueryResult.length === 0) return;
+
+      const rowsToCopy = selectedRowIndexes.size > 0 
+        ? Array.from(selectedRowIndexes).map(idx => lastQueryResult[idx])
+        : lastQueryResult;
+
+      const colsToCopy = selectedColKeys.size > 0 
+        ? Array.from(selectedColKeys)
+        : Object.keys(rowsToCopy[0]).filter(c => !hiddenCols.has(c));
+
+      let csv = colsToCopy.join(',') + '\n';
+      rowsToCopy.forEach(r => {
+        csv += colsToCopy.map(c => `"${String(r[c] || '').replace(/"/g, '""')}"`).join(',') + '\n';
+      });
+
+      navigator.clipboard.writeText(csv).then(() => {
+        alert(`Copied ${rowsToCopy.length} rows and ${colsToCopy.length} columns to clipboard as CSV!`);
+      });
+    };
+
+    window.exportJSON = function() {
+      if (!lastQueryResult || lastQueryResult.length === 0) return;
+      const exportRows = selectedRowIndexes.size > 0 
+        ? Array.from(selectedRowIndexes).map(idx => lastQueryResult[idx])
+        : lastQueryResult;
+
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportRows, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `${currentActiveTable}_export.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+    };
+  </script>
+</body>
+</html>
