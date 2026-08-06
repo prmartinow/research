@@ -42,7 +42,7 @@ export async function initDatabase() {
       clock NUMERIC
     );
 
-    CREATE TABLE IF NOT EXISTS cpu_specs (
+    CREATE TABLE IF NOT EXISTS amd_cpu_specs (
       id SERIAL PRIMARY KEY,
       name TEXT,
       family TEXT,
@@ -73,7 +73,7 @@ export async function initDatabase() {
       supported_technologies TEXT
     );
 
-    CREATE TABLE IF NOT EXISTS igpu_specs (
+    CREATE TABLE IF NOT EXISTS amd_igpu_specs (
       id SERIAL PRIMARY KEY,
       name TEXT,
       family TEXT,
@@ -89,15 +89,74 @@ export async function initDatabase() {
       supported_technologies TEXT
     );
 
-    CREATE TABLE IF NOT EXISTS cpu_series (
+    CREATE TABLE IF NOT EXISTS amd_cpu_series (
       id SERIAL PRIMARY KEY,
       series TEXT NOT NULL
     );
 
-    CREATE TABLE IF NOT EXISTS igpu_series (
+    CREATE TABLE IF NOT EXISTS amd_igpu_series (
       id SERIAL PRIMARY KEY,
       graphics_model TEXT NOT NULL
     );
+
+    -- Intel Tables
+    CREATE TABLE IF NOT EXISTS intel_cpu_specs (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      family TEXT NOT NULL,
+      series TEXT NOT NULL,
+      launch_date TEXT NOT NULL,
+      socket TEXT NOT NULL,
+      process_node TEXT,
+      cores INT,
+      threads INT,
+      p_cores TEXT,
+      e_cores TEXT,
+      l3_cache TEXT,
+      base_clock TEXT,
+      boost_clock TEXT,
+      tdp TEXT,
+      memory_support TEXT,
+      graphics_model TEXT,
+      npu_tops TEXT,
+      has_igpu BOOLEAN NOT NULL,
+      igpu_suffix_rule TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS intel_igpu_specs (
+      id SERIAL PRIMARY KEY,
+      graphics_model TEXT NOT NULL,
+      architecture TEXT NOT NULL,
+      execution_units INT,
+      xe_cores INT,
+      launch_date TEXT NOT NULL,
+      supported_sockets TEXT NOT NULL,
+      performance_tier TEXT,
+      memory_support TEXT,
+      notes TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS intel_cpu_series (
+      id SERIAL PRIMARY KEY,
+      series TEXT NOT NULL,
+      launch_date TEXT NOT NULL,
+      socket TEXT NOT NULL,
+      memory_support TEXT NOT NULL,
+      chipsets TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS intel_igpu_series (
+      id SERIAL PRIMARY KEY,
+      graphics_model TEXT NOT NULL,
+      era TEXT NOT NULL,
+      architecture TEXT NOT NULL
+    );
+
+    -- Backward Compatibility Views
+    CREATE VIEW cpu_specs AS SELECT * FROM amd_cpu_specs;
+    CREATE VIEW igpu_specs AS SELECT * FROM amd_igpu_specs;
+    CREATE VIEW cpu_series AS SELECT * FROM amd_cpu_series;
+    CREATE VIEW igpu_series AS SELECT * FROM amd_igpu_series;
   `);
 
   // Check if cpu_models table is populated
@@ -107,26 +166,26 @@ export async function initDatabase() {
     await seedCpuModels();
   }
 
-  // Check if cpu_specs table is populated
-  const specsCountRes = await db.query('SELECT COUNT(*) as count FROM cpu_specs');
+  // Check if amd_cpu_specs table is populated
+  const specsCountRes = await db.query('SELECT COUNT(*) as count FROM amd_cpu_specs');
   if (parseInt(specsCountRes.rows[0].count, 10) === 0) {
     console.log('Seeding PGlite database with 1-to-1 AMD CPU Specs (27 columns)...');
     await seedCpuSpecs();
   }
 
-  // Check if igpu_specs table is populated
-  const igpuCountRes = await db.query('SELECT COUNT(*) as count FROM igpu_specs');
+  // Check if amd_igpu_specs table is populated
+  const igpuCountRes = await db.query('SELECT COUNT(*) as count FROM amd_igpu_specs');
   if (parseInt(igpuCountRes.rows[0].count, 10) === 0) {
     console.log('Seeding PGlite database with 1-to-1 AMD iGPU Specs (12 columns)...');
     await seedIgpuSpecs();
   }
 
-  // Check if cpu_series table is populated
-  const cpuSeriesRes = await db.query('SELECT COUNT(*) as count FROM cpu_series');
+  // Check if amd_cpu_series table is populated
+  const cpuSeriesRes = await db.query('SELECT COUNT(*) as count FROM amd_cpu_series');
   if (parseInt(cpuSeriesRes.rows[0].count, 10) === 0) {
-    console.log('Seeding PGlite database with CPU Series from Excel...');
+    console.log('Seeding PGlite database with AMD CPU Series...');
     await db.query(`
-      INSERT INTO cpu_series (series) VALUES
+      INSERT INTO amd_cpu_series (series) VALUES
       ('Ryzen AI PRO 400 Series'),
       ('Ryzen AI 400 Series'),
       ('Ryzen PRO 8000 Series'),
@@ -134,18 +193,46 @@ export async function initDatabase() {
     `);
   }
 
-  // Check if igpu_series table is populated
-  const igpuSeriesRes = await db.query('SELECT COUNT(*) as count FROM igpu_series');
+  // Check if amd_igpu_series table is populated
+  const igpuSeriesRes = await db.query('SELECT COUNT(*) as count FROM amd_igpu_series');
   if (parseInt(igpuSeriesRes.rows[0].count, 10) === 0) {
-    console.log('Seeding PGlite database with iGPU Series from Excel...');
+    console.log('Seeding PGlite database with AMD iGPU Series...');
     await db.query(`
-      INSERT INTO igpu_series (graphics_model) VALUES
+      INSERT INTO amd_igpu_series (graphics_model) VALUES
       ('AMD Radeon 860M'),
       ('AMD Radeon 840M'),
       ('AMD Radeon 780M'),
       ('AMD Radeon 760M'),
       ('AMD Radeon 740M');
     `);
+  }
+
+  // Check if intel_cpu_specs table is populated
+  const intelCpuRes = await db.query('SELECT COUNT(*) as count FROM intel_cpu_specs');
+  if (parseInt(intelCpuRes.rows[0].count, 10) === 0) {
+    console.log('Seeding PGlite database with Intel CPU Specs...');
+    await seedIntelCpuSpecs();
+  }
+
+  // Check if intel_igpu_specs table is populated
+  const intelIgpuRes = await db.query('SELECT COUNT(*) as count FROM intel_igpu_specs');
+  if (parseInt(intelIgpuRes.rows[0].count, 10) === 0) {
+    console.log('Seeding PGlite database with Intel iGPU Specs...');
+    await seedIntelIgpuSpecs();
+  }
+
+  // Check if intel_cpu_series table is populated
+  const intelSeriesRes = await db.query('SELECT COUNT(*) as count FROM intel_cpu_series');
+  if (parseInt(intelSeriesRes.rows[0].count, 10) === 0) {
+    console.log('Seeding PGlite database with Intel CPU Series & Sockets...');
+    await seedIntelCpuSeries();
+  }
+
+  // Check if intel_igpu_series table is populated
+  const intelIgpuSeriesRes = await db.query('SELECT COUNT(*) as count FROM intel_igpu_series');
+  if (parseInt(intelIgpuSeriesRes.rows[0].count, 10) === 0) {
+    console.log('Seeding PGlite database with Intel iGPU Series...');
+    await seedIntelIgpuSeries();
   }
 }
 
@@ -1937,11 +2024,11 @@ async function seedCpuSpecs() {
     const vals = cols.map(c => row[c] !== undefined ? row[c] : null);
     const placeholders = cols.map((_, idx) => '$' + (idx + 1)).join(', ');
     await db.query(
-      `INSERT INTO cpu_specs (${cols.join(', ')}) VALUES (${placeholders})`,
+      `INSERT INTO amd_cpu_specs (${cols.join(', ')}) VALUES (${placeholders})`,
       vals
     );
   }
-  console.log('Successfully seeded PGlite cpu_specs table (27 columns 1-to-1)!');
+  console.log('Successfully seeded PGlite amd_cpu_specs table (27 columns 1-to-1)!');
 }
 
 async function seedIgpuSpecs() {
@@ -2513,11 +2600,102 @@ async function seedIgpuSpecs() {
     const vals = cols.map(c => row[c] !== undefined ? row[c] : null);
     const placeholders = cols.map((_, idx) => '$' + (idx + 1)).join(', ');
     await db.query(
-      `INSERT INTO igpu_specs (${cols.join(', ')}) VALUES (${placeholders})`,
+      `INSERT INTO amd_igpu_specs (${cols.join(', ')}) VALUES (${placeholders})`,
       vals
     );
   }
-  console.log('Successfully seeded PGlite igpu_specs table (12 columns 1-to-1)!');
+  console.log('Successfully seeded PGlite amd_igpu_specs table (12 columns 1-to-1)!');
+}
+
+async function seedIntelCpuSpecs() {
+  const intelCpuSpecsData = [
+    { name: "Intel Core i9-14900KS", family: "Core i9", series: "14th Gen (Raptor Lake Refresh)", launch_date: "Mar 2024", socket: "LGA 1700", process_node: "Intel 7 (10nm)", cores: 24, threads: 32, p_cores: "8P (3.2 / 6.2 GHz)", e_cores: "16E (2.4 / 4.5 GHz)", l3_cache: "36MB", base_clock: "3.2 GHz", boost_clock: "6.2 GHz", tdp: "150W", memory_support: "DDR4-3200 / DDR5-5600", graphics_model: "Intel UHD Graphics 770 (32 EUs)", npu_tops: "N/A", has_igpu: true, igpu_suffix_rule: "KS (has iGPU)" },
+    { name: "Intel Core i9-14900K", family: "Core i9", series: "14th Gen (Raptor Lake Refresh)", launch_date: "Oct 2023", socket: "LGA 1700", process_node: "Intel 7 (10nm)", cores: 24, threads: 32, p_cores: "8P (3.2 / 6.0 GHz)", e_cores: "16E (2.4 / 4.4 GHz)", l3_cache: "36MB", base_clock: "3.2 GHz", boost_clock: "6.0 GHz", tdp: "125W", memory_support: "DDR4-3200 / DDR5-5600", graphics_model: "Intel UHD Graphics 770 (32 EUs)", npu_tops: "N/A", has_igpu: true, igpu_suffix_rule: "K (has iGPU)" },
+    { name: "Intel Core i9-14900KF", family: "Core i9", series: "14th Gen (Raptor Lake Refresh)", launch_date: "Oct 2023", socket: "LGA 1700", process_node: "Intel 7 (10nm)", cores: 24, threads: 32, p_cores: "8P (3.2 / 6.0 GHz)", e_cores: "16E (2.4 / 4.4 GHz)", l3_cache: "36MB", base_clock: "3.2 GHz", boost_clock: "6.0 GHz", tdp: "125W", memory_support: "DDR4-3200 / DDR5-5600", graphics_model: "None", npu_tops: "N/A", has_igpu: false, igpu_suffix_rule: "KF (No iGPU)" },
+    { name: "Intel Core i7-14700K", family: "Core i7", series: "14th Gen (Raptor Lake Refresh)", launch_date: "Oct 2023", socket: "LGA 1700", process_node: "Intel 7 (10nm)", cores: 20, threads: 28, p_cores: "8P (3.4 / 5.6 GHz)", e_cores: "12E (2.5 / 4.3 GHz)", l3_cache: "33MB", base_clock: "3.4 GHz", boost_clock: "5.6 GHz", tdp: "125W", memory_support: "DDR4-3200 / DDR5-5600", graphics_model: "Intel UHD Graphics 770 (32 EUs)", npu_tops: "N/A", has_igpu: true, igpu_suffix_rule: "K (has iGPU)" },
+    { name: "Intel Core i5-14600K", family: "Core i5", series: "14th Gen (Raptor Lake Refresh)", launch_date: "Oct 2023", socket: "LGA 1700", process_node: "Intel 7 (10nm)", cores: 14, threads: 20, p_cores: "6P (3.5 / 5.3 GHz)", e_cores: "8E (2.6 / 4.0 GHz)", l3_cache: "24MB", base_clock: "3.5 GHz", boost_clock: "5.3 GHz", tdp: "125W", memory_support: "DDR4-3200 / DDR5-5600", graphics_model: "Intel UHD Graphics 770 (32 EUs)", npu_tops: "N/A", has_igpu: true, igpu_suffix_rule: "K (has iGPU)" },
+    { name: "Intel Core i5-14400", family: "Core i5", series: "14th Gen (Raptor Lake Refresh)", launch_date: "Jan 2024", socket: "LGA 1700", process_node: "Intel 7 (10nm)", cores: 10, threads: 16, p_cores: "6P (2.5 / 4.7 GHz)", e_cores: "4E (1.8 / 3.5 GHz)", l3_cache: "20MB", base_clock: "2.5 GHz", boost_clock: "4.7 GHz", tdp: "65W", memory_support: "DDR4-3200 / DDR5-4800", graphics_model: "Intel UHD Graphics 730 (24 EUs)", npu_tops: "N/A", has_igpu: true, igpu_suffix_rule: "No suffix (has iGPU)" },
+    { name: "Intel Core i5-14400F", family: "Core i5", series: "14th Gen (Raptor Lake Refresh)", launch_date: "Jan 2024", socket: "LGA 1700", process_node: "Intel 7 (10nm)", cores: 10, threads: 16, p_cores: "6P (2.5 / 4.7 GHz)", e_cores: "4E (1.8 / 3.5 GHz)", l3_cache: "20MB", base_clock: "2.5 GHz", boost_clock: "4.7 GHz", tdp: "65W", memory_support: "DDR4-3200 / DDR5-4800", graphics_model: "None", npu_tops: "N/A", has_igpu: false, igpu_suffix_rule: "F (No iGPU)" },
+    { name: "Intel Core i3-14100", family: "Core i3", series: "14th Gen (Raptor Lake Refresh)", launch_date: "Jan 2024", socket: "LGA 1700", process_node: "Intel 7 (10nm)", cores: 4, threads: 8, p_cores: "4P (3.5 / 4.7 GHz)", e_cores: "0E", l3_cache: "12MB", base_clock: "3.5 GHz", boost_clock: "4.7 GHz", tdp: "60W", memory_support: "DDR4-3200 / DDR5-4800", graphics_model: "Intel UHD Graphics 730 (24 EUs)", npu_tops: "N/A", has_igpu: true, igpu_suffix_rule: "No suffix (has iGPU)" },
+    { name: "Intel Core Ultra 9 285K", family: "Core Ultra 9", series: "Core Ultra 200S (Arrow Lake)", launch_date: "Oct 2024", socket: "LGA 1851", process_node: "TSMC N3B (3nm)", cores: 24, threads: 24, p_cores: "8P (3.7 / 5.7 GHz)", e_cores: "16E (3.2 / 4.6 GHz)", l3_cache: "36MB", base_clock: "3.7 GHz", boost_clock: "5.7 GHz", tdp: "125W", memory_support: "DDR5-6400 only", graphics_model: "Intel Graphics (Xe-LPG, 4 Xe Cores / 64 EUs)", npu_tops: "13 TOPS", has_igpu: true, igpu_suffix_rule: "K (has iGPU)" },
+    { name: "Intel Core Ultra 7 265K", family: "Core Ultra 7", series: "Core Ultra 200S (Arrow Lake)", launch_date: "Oct 2024", socket: "LGA 1851", process_node: "TSMC N3B (3nm)", cores: 20, threads: 20, p_cores: "8P (3.9 / 5.5 GHz)", e_cores: "12E (3.3 / 4.6 GHz)", l3_cache: "30MB", base_clock: "3.9 GHz", boost_clock: "5.5 GHz", tdp: "125W", memory_support: "DDR5-6400 only", graphics_model: "Intel Graphics (Xe-LPG, 4 Xe Cores / 64 EUs)", npu_tops: "13 TOPS", has_igpu: true, igpu_suffix_rule: "K (has iGPU)" },
+    { name: "Intel Core Ultra 5 245K", family: "Core Ultra 5", series: "Core Ultra 200S (Arrow Lake)", launch_date: "Oct 2024", socket: "LGA 1851", process_node: "TSMC N3B (3nm)", cores: 14, threads: 14, p_cores: "6P (4.2 / 5.2 GHz)", e_cores: "8E (3.6 / 4.6 GHz)", l3_cache: "24MB", base_clock: "4.2 GHz", boost_clock: "5.2 GHz", tdp: "125W", memory_support: "DDR5-6400 only", graphics_model: "Intel Graphics (Xe-LPG, 4 Xe Cores / 64 EUs)", npu_tops: "13 TOPS", has_igpu: true, igpu_suffix_rule: "K (has iGPU)" },
+    { name: "Intel Core Ultra 9 285", family: "Core Ultra 9", series: "Core Ultra 200S (Arrow Lake)", launch_date: "Early 2025", socket: "LGA 1851", process_node: "TSMC N3B (3nm)", cores: 24, threads: 24, p_cores: "8P (2.5 / 5.6 GHz)", e_cores: "16E (1.9 / 4.6 GHz)", l3_cache: "36MB", base_clock: "2.5 GHz", boost_clock: "5.6 GHz", tdp: "65W", memory_support: "DDR5-6400 only", graphics_model: "Intel Graphics (Xe-LPG, 4 Xe Cores / 64 EUs)", npu_tops: "13 TOPS", has_igpu: true, igpu_suffix_rule: "No suffix (has iGPU)" },
+    { name: "Intel Core Ultra 7 265", family: "Core Ultra 7", series: "Core Ultra 200S (Arrow Lake)", launch_date: "Early 2025", socket: "LGA 1851", process_node: "TSMC N3B (3nm)", cores: 20, threads: 20, p_cores: "8P (2.4 / 5.3 GHz)", e_cores: "12E (1.8 / 4.6 GHz)", l3_cache: "30MB", base_clock: "2.4 GHz", boost_clock: "5.3 GHz", tdp: "65W", memory_support: "DDR5-6400 only", graphics_model: "Intel Graphics (Xe-LPG, 4 Xe Cores / 64 EUs)", npu_tops: "13 TOPS", has_igpu: true, igpu_suffix_rule: "No suffix (has iGPU)" },
+    { name: "Intel Core Ultra 5 235", family: "Core Ultra 5", series: "Core Ultra 200S (Arrow Lake)", launch_date: "Early 2025", socket: "LGA 1851", process_node: "TSMC N3B (3nm)", cores: 14, threads: 14, p_cores: "6P (3.4 / 5.0 GHz)", e_cores: "8E (2.9 / 4.4 GHz)", l3_cache: "24MB", base_clock: "3.4 GHz", boost_clock: "5.0 GHz", tdp: "65W", memory_support: "DDR5-6400 only", graphics_model: "Intel Graphics (Xe-LPG, 4 Xe Cores / 64 EUs)", npu_tops: "13 TOPS", has_igpu: true, igpu_suffix_rule: "No suffix (has iGPU)" },
+    { name: "Intel Core Ultra 5 225", family: "Core Ultra 5", series: "Core Ultra 200S (Arrow Lake)", launch_date: "Early 2025", socket: "LGA 1851", process_node: "TSMC N3B (3nm)", cores: 10, threads: 10, p_cores: "6P (3.3 / 4.9 GHz)", e_cores: "4E (2.7 / 4.4 GHz)", l3_cache: "20MB", base_clock: "3.3 GHz", boost_clock: "4.9 GHz", tdp: "65W", memory_support: "DDR5-6400 only", graphics_model: "Intel Graphics (Xe-LPG, 4 Xe Cores / 64 EUs)", npu_tops: "13 TOPS", has_igpu: true, igpu_suffix_rule: "No suffix (has iGPU)" },
+    { name: "Intel Core Ultra 9 290K Plus", family: "Core Ultra 9", series: "Arrow Lake Refresh \"Plus\"", launch_date: "2026", socket: "LGA 1851", process_node: "TSMC N3B (3nm)", cores: 24, threads: 24, p_cores: "8P (3.8 / 5.8 GHz)", e_cores: "16E (3.3 / 4.7 GHz)", l3_cache: "36MB", base_clock: "3.8 GHz", boost_clock: "5.8 GHz", tdp: "125W", memory_support: "DDR5-6400 only", graphics_model: "Intel Graphics (Xe-LPG family)", npu_tops: "13 TOPS", has_igpu: true, igpu_suffix_rule: "K (has iGPU)" },
+    { name: "Intel Core Ultra 7 270K Plus", family: "Core Ultra 7", series: "Arrow Lake Refresh \"Plus\"", launch_date: "2026", socket: "LGA 1851", process_node: "TSMC N3B (3nm)", cores: 20, threads: 20, p_cores: "8P (4.0 / 5.6 GHz)", e_cores: "12E (3.4 / 4.7 GHz)", l3_cache: "30MB", base_clock: "4.0 GHz", boost_clock: "5.6 GHz", tdp: "125W", memory_support: "DDR5-6400 only", graphics_model: "Intel Graphics (Xe-LPG family)", npu_tops: "13 TOPS", has_igpu: true, igpu_suffix_rule: "K (has iGPU)" },
+    { name: "Intel Core Ultra 5 250K Plus", family: "Core Ultra 5", series: "Arrow Lake Refresh \"Plus\"", launch_date: "2026", socket: "LGA 1851", process_node: "TSMC N3B (3nm)", cores: 14, threads: 14, p_cores: "6P (4.3 / 5.3 GHz)", e_cores: "8E (3.7 / 4.7 GHz)", l3_cache: "24MB", base_clock: "4.3 GHz", boost_clock: "5.3 GHz", tdp: "125W", memory_support: "DDR5-6400 only", graphics_model: "Intel Graphics (Xe-LPG family)", npu_tops: "13 TOPS", has_igpu: true, igpu_suffix_rule: "K (has iGPU)" },
+    { name: "Intel Nova Lake Core Ultra Series 4", family: "Core Ultra (Series 4)", series: "Nova Lake", launch_date: "Late 2026", socket: "LGA 1954 (upcoming)", process_node: "Intel 18A / TSMC", cores: 52, threads: 52, p_cores: "16P", e_cores: "32E + 4 LP-E", l3_cache: "Up to 288MB L3", base_clock: "TBD", boost_clock: "TBD", tdp: "TBD", memory_support: "DDR5", graphics_model: "Intel Xe3 Graphics", npu_tops: "~74 TOPS", has_igpu: true, igpu_suffix_rule: "No suffix (has iGPU)" }
+  ];
+
+  const cols = Object.keys(intelCpuSpecsData[0]);
+  const colNames = cols.map(c => `"${c}"`).join(', ');
+  const placeholders = cols.map((_, idx) => '$' + (idx + 1)).join(', ');
+
+  for (const row of intelCpuSpecsData) {
+    const vals = cols.map(c => row[c] !== undefined ? row[c] : null);
+    await db.query(`INSERT INTO intel_cpu_specs (${colNames}) VALUES (${placeholders})`, vals);
+  }
+  console.log('Successfully seeded PGlite intel_cpu_specs table!');
+}
+
+async function seedIntelIgpuSpecs() {
+  const intelIgpuSpecsData = [
+    { graphics_model: "Intel UHD Graphics 770", architecture: "Xe Architecture", execution_units: 32, xe_cores: 0, launch_date: "Oct 2023", supported_sockets: "LGA 1700", performance_tier: "Baseline Desktop iGPU", memory_support: "DDR4 / DDR5", notes: "Featured on 14th Gen Core i5-14600K, i7-14700K, i9-14900K" },
+    { graphics_model: "Intel UHD Graphics 730", architecture: "Xe Architecture", execution_units: 24, xe_cores: 0, launch_date: "Oct 2023", supported_sockets: "LGA 1700", performance_tier: "Entry Desktop iGPU", memory_support: "DDR4 / DDR5", notes: "Featured on 14th Gen Core i5-14400 and i3-14100" },
+    { graphics_model: "Intel Graphics (4 Xe-cores)", architecture: "Xe-LPG Architecture", execution_units: 64, xe_cores: 4, launch_date: "Oct 2024", supported_sockets: "LGA 1851", performance_tier: "2x-3x Performance vs UHD 770", memory_support: "DDR5-only", notes: "First desktop NPU (13 TOPS) on Core Ultra 200S Arrow Lake" },
+    { graphics_model: "Intel Graphics (Xe-LPG Family)", architecture: "Xe-LPG Architecture", execution_units: 64, xe_cores: 4, launch_date: "2026", supported_sockets: "LGA 1851", performance_tier: "Refreshed Xe-LPG iGPU", memory_support: "DDR5-only", notes: "Featured on Arrow Lake Refresh Plus models" },
+    { graphics_model: "Intel Xe3 Graphics", architecture: "Xe3 Architecture", execution_units: null, xe_cores: null, launch_date: "Late 2026", supported_sockets: "LGA 1954 (upcoming)", performance_tier: "Next-Gen Ultra iGPU (~74 TOPS NPU)", memory_support: "DDR5", notes: "Featured on Nova Lake (Core Ultra Series 4)" }
+  ];
+
+  const cols = Object.keys(intelIgpuSpecsData[0]);
+  const colNames = cols.map(c => `"${c}"`).join(', ');
+  const placeholders = cols.map((_, idx) => '$' + (idx + 1)).join(', ');
+
+  for (const row of intelIgpuSpecsData) {
+    const vals = cols.map(c => row[c] !== undefined ? row[c] : null);
+    await db.query(`INSERT INTO intel_igpu_specs (${colNames}) VALUES (${placeholders})`, vals);
+  }
+  console.log('Successfully seeded PGlite intel_igpu_specs table!');
+}
+
+async function seedIntelCpuSeries() {
+  const intelCpuSeriesData = [
+    { series: "14th Gen Core (Raptor Lake Refresh)", launch_date: "Oct 2023", socket: "LGA 1700", memory_support: "DDR4 or DDR5", chipsets: "600/700 series (Z790, B760, etc.)" },
+    { series: "Core Ultra 200S (Arrow Lake)", launch_date: "Oct 2024", socket: "LGA 1851", memory_support: "DDR5 only", chipsets: "800 series (Z890, B860, H810)" },
+    { series: "Arrow Lake Refresh \"Plus\"", launch_date: "2026", socket: "LGA 1851", memory_support: "DDR5 only", chipsets: "800 series (Z890, B860, H810)" },
+    { series: "Nova Lake (Core Ultra Series 4)", launch_date: "Late 2026", socket: "LGA 1954 (upcoming)", memory_support: "DDR5", chipsets: "900 series" }
+  ];
+
+  const cols = Object.keys(intelCpuSeriesData[0]);
+  const colNames = cols.map(c => `"${c}"`).join(', ');
+  const placeholders = cols.map((_, idx) => '$' + (idx + 1)).join(', ');
+
+  for (const row of intelCpuSeriesData) {
+    const vals = cols.map(c => row[c] !== undefined ? row[c] : null);
+    await db.query(`INSERT INTO intel_cpu_series (${colNames}) VALUES (${placeholders})`, vals);
+  }
+  console.log('Successfully seeded PGlite intel_cpu_series table!');
+}
+
+async function seedIntelIgpuSeries() {
+  const intelIgpuSeriesData = [
+    { graphics_model: "UHD 770 & UHD 730", era: "2023", architecture: "Xe Architecture (Raptor Lake Refresh)" },
+    { graphics_model: "Intel Graphics (2-4 Xe-cores)", era: "2024-2026", architecture: "Xe-LPG Architecture (Arrow Lake & Arrow Lake Refresh Plus)" },
+    { graphics_model: "Intel Xe3 Graphics", era: "Late 2026", architecture: "Xe3 Architecture (Nova Lake)" }
+  ];
+
+  const cols = Object.keys(intelIgpuSeriesData[0]);
+  const colNames = cols.map(c => `"${c}"`).join(', ');
+  const placeholders = cols.map((_, idx) => '$' + (idx + 1)).join(', ');
+
+  for (const row of intelIgpuSeriesData) {
+    const vals = cols.map(c => row[c] !== undefined ? row[c] : null);
+    await db.query(`INSERT INTO intel_igpu_series (${colNames}) VALUES (${placeholders})`, vals);
+  }
+  console.log('Successfully seeded PGlite intel_igpu_series table!');
 }
 
 export async function getReleases(brand = 'all', type = 'all', sort = 'desc') {

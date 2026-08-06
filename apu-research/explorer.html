@@ -589,28 +589,56 @@
       </div>
 
       <div>
-        <div class="sidebar-section-title">1-to-1 AMD Excel Tables</div>
-        <ul class="table-list" id="table-list">
-          <li class="table-item" onclick="loadTable('cpu_specs')">
-            <span>cpu_specs (27 cols)</span>
-            <span class="table-row-count" id="count-cpu-specs">...</span>
+        <div class="sidebar-section-title">AMD Excel Tables</div>
+        <ul class="table-list" id="table-list-amd">
+          <li class="table-item" onclick="loadTable('amd_cpu_specs')">
+            <span>amd_cpu_specs (27 cols)</span>
+            <span class="table-row-count" id="count-amd-cpu-specs">...</span>
           </li>
-          <li class="table-item" onclick="loadTable('igpu_specs')">
-            <span>igpu_specs (12 cols)</span>
-            <span class="table-row-count" id="count-igpu-specs">...</span>
+          <li class="table-item" onclick="loadTable('amd_igpu_specs')">
+            <span>amd_igpu_specs (12 cols)</span>
+            <span class="table-row-count" id="count-amd-igpu-specs">...</span>
           </li>
-          <li class="table-item" onclick="loadTable('cpu_series')">
-            <span>cpu_series</span>
-            <span class="table-row-count" id="count-cpu-series">...</span>
+          <li class="table-item" onclick="loadTable('amd_cpu_series')">
+            <span>amd_cpu_series</span>
+            <span class="table-row-count" id="count-amd-cpu-series">...</span>
           </li>
-          <li class="table-item" onclick="loadTable('igpu_series')">
-            <span>igpu_series</span>
-            <span class="table-row-count" id="count-igpu-series">...</span>
+          <li class="table-item" onclick="loadTable('amd_igpu_series')">
+            <span>amd_igpu_series</span>
+            <span class="table-row-count" id="count-amd-igpu-series">...</span>
           </li>
           <li class="table-item" onclick="loadTable('cpu_models')">
             <span>cpu_models</span>
             <span class="table-row-count" id="count-cpu-models">...</span>
           </li>
+        </ul>
+      </div>
+
+      <div style="margin-top: 1.2rem;">
+        <div class="sidebar-section-title">Intel Desktop CPU & iGPU Tables</div>
+        <ul class="table-list" id="table-list-intel">
+          <li class="table-item" onclick="loadTable('intel_cpu_specs')">
+            <span>intel_cpu_specs</span>
+            <span class="table-row-count" id="count-intel-cpu-specs">...</span>
+          </li>
+          <li class="table-item" onclick="loadTable('intel_igpu_specs')">
+            <span>intel_igpu_specs</span>
+            <span class="table-row-count" id="count-intel-igpu-specs">...</span>
+          </li>
+          <li class="table-item" onclick="loadTable('intel_cpu_series')">
+            <span>intel_cpu_series</span>
+            <span class="table-row-count" id="count-intel-cpu-series">...</span>
+          </li>
+          <li class="table-item" onclick="loadTable('intel_igpu_series')">
+            <span>intel_igpu_series</span>
+            <span class="table-row-count" id="count-intel-igpu-series">...</span>
+          </li>
+        </ul>
+      </div>
+
+      <div style="margin-top: 1.2rem;">
+        <div class="sidebar-section-title">System & Timeline Tables</div>
+        <ul class="table-list" id="table-list-system">
           <li class="table-item" onclick="loadTable('releases')">
             <span>releases</span>
             <span class="table-row-count" id="count-releases">...</span>
@@ -697,7 +725,7 @@
     import { initDatabase, db } from './db.js';
 
     let lastQueryResult = [];
-    let currentActiveTable = localStorage.getItem('pglite_explorer_active_table') || 'cpu_specs';
+    let currentActiveTable = localStorage.getItem('pglite_explorer_active_table') || 'amd_cpu_specs';
     let hiddenCols = new Set();
     let hiddenRowIndexes = new Set();
     let currentColumns = [];
@@ -716,7 +744,7 @@
       await initDatabase();
       await updateSidebarCounts();
       
-      const savedTable = localStorage.getItem('pglite_explorer_active_table') || 'cpu_specs';
+      const savedTable = localStorage.getItem('pglite_explorer_active_table') || 'amd_cpu_specs';
       loadTable(savedTable);
 
       // Click outside table to clear selection
@@ -990,23 +1018,45 @@
 
     async function updateSidebarCounts() {
       try {
-        const c1 = await db.query('SELECT COUNT(*) as count FROM cpu_specs');
-        document.getElementById('count-cpu-specs').textContent = `${c1.rows[0].count} rows`;
+        const c1 = await db.query('SELECT COUNT(*) as count FROM amd_cpu_specs');
+        const el1 = document.getElementById('count-amd-cpu-specs');
+        if (el1) el1.textContent = `${c1.rows[0].count} rows`;
 
-        const c2 = await db.query('SELECT COUNT(*) as count FROM igpu_specs');
-        document.getElementById('count-igpu-specs').textContent = `${c2.rows[0].count} rows`;
+        const c2 = await db.query('SELECT COUNT(*) as count FROM amd_igpu_specs');
+        const el2 = document.getElementById('count-amd-igpu-specs');
+        if (el2) el2.textContent = `${c2.rows[0].count} rows`;
 
-        const c3 = await db.query('SELECT COUNT(*) as count FROM cpu_series');
-        document.getElementById('count-cpu-series').textContent = `${c3.rows[0].count} rows`;
+        const c3 = await db.query('SELECT COUNT(*) as count FROM amd_cpu_series');
+        const el3 = document.getElementById('count-amd-cpu-series');
+        if (el3) el3.textContent = `${c3.rows[0].count} rows`;
 
-        const c4 = await db.query('SELECT COUNT(*) as count FROM igpu_series');
-        document.getElementById('count-igpu-series').textContent = `${c4.rows[0].count} rows`;
+        const c4 = await db.query('SELECT COUNT(*) as count FROM amd_igpu_series');
+        const el4 = document.getElementById('count-amd-igpu-series');
+        if (el4) el4.textContent = `${c4.rows[0].count} rows`;
 
         const c5 = await db.query('SELECT COUNT(*) as count FROM cpu_models');
-        document.getElementById('count-cpu-models').textContent = `${c5.rows[0].count} rows`;
+        const el5 = document.getElementById('count-cpu-models');
+        if (el5) el5.textContent = `${c5.rows[0].count} rows`;
 
-        const c6 = await db.query('SELECT COUNT(*) as count FROM releases');
-        document.getElementById('count-releases').textContent = `${c6.rows[0].count} rows`;
+        const c6 = await db.query('SELECT COUNT(*) as count FROM intel_cpu_specs');
+        const el6 = document.getElementById('count-intel-cpu-specs');
+        if (el6) el6.textContent = `${c6.rows[0].count} rows`;
+
+        const c7 = await db.query('SELECT COUNT(*) as count FROM intel_igpu_specs');
+        const el7 = document.getElementById('count-intel-igpu-specs');
+        if (el7) el7.textContent = `${c7.rows[0].count} rows`;
+
+        const c8 = await db.query('SELECT COUNT(*) as count FROM intel_cpu_series');
+        const el8 = document.getElementById('count-intel-cpu-series');
+        if (el8) el8.textContent = `${c8.rows[0].count} rows`;
+
+        const c9 = await db.query('SELECT COUNT(*) as count FROM intel_igpu_series');
+        const el9 = document.getElementById('count-intel-igpu-series');
+        if (el9) el9.textContent = `${c9.rows[0].count} rows`;
+
+        const c10 = await db.query('SELECT COUNT(*) as count FROM releases');
+        const el10 = document.getElementById('count-releases');
+        if (el10) el10.textContent = `${c10.rows[0].count} rows`;
       } catch(e) {}
     }
 
