@@ -1060,7 +1060,7 @@
       } catch(e) {}
     }
 
-    window.loadTable = function(tableName) {
+    window.loadTable = async function(tableName) {
       currentActiveTable = tableName;
       localStorage.setItem('pglite_explorer_active_table', tableName);
 
@@ -1078,7 +1078,15 @@
         : `SELECT * FROM ${tableName} ORDER BY id ASC LIMIT 100;`;
       
       setQuery(sql);
-      executeQuery(false);
+      try {
+        await executeQuery(false);
+      } catch (err) {
+        if (!tableName.includes('.')) {
+          const fallbackSql = `SELECT * FROM ${tableName} LIMIT 100;`;
+          setQuery(fallbackSql);
+          await executeQuery(false);
+        }
+      }
     };
 
     window.setQuery = function(sql) {

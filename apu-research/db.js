@@ -153,10 +153,19 @@ export async function initDatabase() {
     );
 
     -- Backward Compatibility Views
-    CREATE VIEW cpu_specs AS SELECT * FROM amd_cpu_specs;
-    CREATE VIEW igpu_specs AS SELECT * FROM amd_igpu_specs;
-    CREATE VIEW cpu_series AS SELECT * FROM amd_cpu_series;
-    CREATE VIEW igpu_series AS SELECT * FROM amd_igpu_series;
+    DROP VIEW IF EXISTS cpu_specs CASCADE;
+    DROP TABLE IF EXISTS cpu_specs CASCADE;
+    DROP VIEW IF EXISTS igpu_specs CASCADE;
+    DROP TABLE IF EXISTS igpu_specs CASCADE;
+    DROP VIEW IF EXISTS cpu_series CASCADE;
+    DROP TABLE IF EXISTS cpu_series CASCADE;
+    DROP VIEW IF EXISTS igpu_series CASCADE;
+    DROP TABLE IF EXISTS igpu_series CASCADE;
+
+    CREATE OR REPLACE VIEW cpu_specs AS SELECT * FROM amd_cpu_specs;
+    CREATE OR REPLACE VIEW igpu_specs AS SELECT * FROM amd_igpu_specs;
+    CREATE OR REPLACE VIEW cpu_series AS SELECT * FROM amd_cpu_series;
+    CREATE OR REPLACE VIEW igpu_series AS SELECT * FROM amd_igpu_series;
   `);
 
   // Check if cpu_models table is populated
