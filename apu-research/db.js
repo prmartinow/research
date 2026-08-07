@@ -243,6 +243,25 @@ export async function initDatabase() {
     console.log('Seeding PGlite database with Intel iGPU Series...');
     await seedIntelIgpuSeries();
   }
+
+  // Apply permanent column drop schema alterations saved in browser localStorage
+  await applyDroppedColumnsFromStorage();
+}
+
+export async function applyDroppedColumnsFromStorage() {
+  if (typeof localStorage === 'undefined') return;
+  const tables = ['intel_cpu_specs', 'intel_igpu_specs', 'intel_cpu_series', 'intel_igpu_series', 'amd_cpu_specs', 'amd_igpu_specs', 'amd_cpu_series', 'amd_igpu_series', 'cpu_models'];
+  for (const table of tables) {
+    try {
+      const saved = localStorage.getItem(`pglite_explorer_dropped_cols_${table}`);
+      if (saved) {
+        const dropped = JSON.parse(saved);
+        for (const col of dropped) {
+          await db.query(`ALTER TABLE ${table} DROP COLUMN IF EXISTS "${col}"`);
+        }
+      }
+    } catch(e) {}
+  }
 }
 
 async function seedCpuModels() {

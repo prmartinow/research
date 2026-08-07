@@ -1339,9 +1339,15 @@
           const droppedSet = getDroppedColumns(currentActiveTable);
           for (const cKey of selectedColKeys) {
             droppedSet.add(cKey);
+            try {
+              await db.query(`ALTER TABLE ${currentActiveTable} DROP COLUMN IF EXISTS "${cKey}"`);
+            } catch(e) {}
           }
           saveDroppedColumns(currentActiveTable, droppedSet);
-          renderTableGrid();
+          
+          const refreshSql = `SELECT * FROM ${currentActiveTable} ORDER BY id ASC LIMIT 100;`;
+          setQuery(refreshSql);
+          await executeQuery(false);
         }
 
         clearSelections();
