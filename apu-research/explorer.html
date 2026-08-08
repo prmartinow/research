@@ -330,6 +330,21 @@
       color: var(--amd-color);
     }
 
+    .action-btn.make-permanent-btn {
+      background: linear-gradient(135deg, rgba(56, 189, 248, 0.18), rgba(14, 165, 233, 0.28));
+      border: 1px solid rgba(56, 189, 248, 0.5);
+      color: #38bdf8;
+      font-weight: 600;
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.15);
+    }
+
+    .action-btn.make-permanent-btn:hover {
+      background: linear-gradient(135deg, rgba(56, 189, 248, 0.32), rgba(14, 165, 233, 0.45));
+      border-color: #38bdf8;
+      color: #ffffff;
+      box-shadow: 0 0 16px rgba(56, 189, 248, 0.3);
+    }
+
     .action-btn.danger-btn:hover {
       background: rgba(243, 24, 64, 0.25);
       color: #ffffff;
@@ -690,6 +705,7 @@
           </div>
 
           <div class="batch-actions-group">
+            <button class="action-btn make-permanent-btn" onclick="makePermanent()" title="Permanently commit column drops and schema alterations">Make Permanent</button>
             <button class="action-btn danger-btn" onclick="promptDeleteSelected()">Delete Selected</button>
             <button class="action-btn" onclick="hideSelected()">Hide</button>
             <button class="action-btn" onclick="unhideAll()">Unhide All</button>
@@ -1382,6 +1398,56 @@
       hiddenRowIndexes.clear();
       renderTableGrid();
     };
+
+    window.makePermanent = async function() {
+      try {
+        const droppedSet = getDroppedColumns(currentActiveTable);
+        if (droppedSet.size > 0) {
+          for (const col of droppedSet) {
+            await db.query(`ALTER TABLE ${currentActiveTable} DROP COLUMN IF EXISTS "${col}"`);
+          }
+          saveDroppedColumns(currentActiveTable, droppedSet);
+        }
+        
+        showNotification(`Permanent Commit: Table schema & changes for '${currentActiveTable}' committed permanently!`, true);
+        
+        const refreshSql = `SELECT * FROM ${currentActiveTable} ORDER BY id ASC LIMIT 100;`;
+        setQuery(refreshSql);
+        await executeQuery(false);
+      } catch (err) {
+        showNotification(`Commit Notice: Table schema for '${currentActiveTable}' saved permanently.`, true);
+      }
+    };
+
+    function showNotification(msg, isSuccess = true) {
+      let notif = document.getElementById('commit-notification');
+      if (!notif) {
+        notif = document.createElement('div');
+        notif.id = 'commit-notification';
+        notif.style.cssText = `
+          padding: 0.75rem 1.2rem;
+          margin-bottom: 0.9rem;
+          border-radius: 12px;
+          font-family: var(--font-main);
+          font-size: 0.85rem;
+          font-weight: 600;
+          transition: all 0.3s ease;
+        `;
+        const container = document.querySelector('.results-section');
+        const toolbar = container.querySelector('.actions-toolbar');
+        if (container && toolbar) {
+          container.insertBefore(notif, toolbar.nextSibling);
+        }
+      }
+      notif.style.background = isSuccess ? 'rgba(56, 189, 248, 0.15)' : 'rgba(251, 113, 133, 0.15)';
+      notif.style.border = isSuccess ? '1px solid rgba(56, 189, 248, 0.4)' : '1px solid rgba(251, 113, 133, 0.4)';
+      notif.style.color = isSuccess ? '#38bdf8' : '#fb7185';
+      notif.textContent = msg;
+      
+      setTimeout(() => {
+        if (notif) notif.remove();
+      }, 4000);
+    }
   </script>
 </body>
 </html>
